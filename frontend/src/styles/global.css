@@ -1,0 +1,113 @@
+/* ============================================================
+   智能英语学习系统 · 视觉设计令牌 (Design Tokens)
+   设计方向：单词卡片 / 词典手账 —— 以艾宾浩斯遗忘曲线为视觉母题
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Noto+Serif+SC:wght@600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  /* ---- 色彩 ---- */
+  --color-ink: #1B2436;           /* 主文字 · 深靛蓝墨色 */
+  --color-ink-soft: #4A5468;      /* 次级文字 */
+  --color-paper: #EEF1F5;         /* 页面背景 · 冷调纸灰蓝 */
+  --color-paper-warm: #F5F3EE;    /* 卡片内衬 · 微暖纸色 */
+  --color-surface: #FFFFFF;       /* 卡片表面 */
+  --color-border: #DBE1EA;        /* 分割线/描边 */
+  --color-border-soft: #E8ECF2;
+
+  --color-primary: #2F5D8A;       /* 普鲁士蓝 · 主色/主按钮 */
+  --color-primary-deep: #1F3D5C;  /* 深蓝 · hover/强调 */
+  --color-primary-tint: #E4ECF4;  /* 浅蓝底色 */
+
+  --color-moss: #4C7A5D;          /* 苔绿 · 已掌握/成功 */
+  --color-moss-tint: #E6EFE9;
+  --color-amber: #C98A2C;         /* 琥珀 · 学习中/进行态 */
+  --color-amber-tint: #F6ECDA;
+  --color-rust: #B5533C;          /* 砖红 · 错词/警示 */
+  --color-rust-tint: #F5E6E1;
+
+  /* ---- 字体 ---- */
+  --font-display: 'Source Serif 4', 'Noto Serif SC', serif;
+  --font-body: 'Inter', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* ---- 圆角与阴影 ---- */
+  --radius-card: 14px;
+  --radius-sm: 8px;
+  --shadow-card: 0 1px 2px rgba(27, 36, 54, 0.04), 0 8px 24px rgba(27, 36, 54, 0.06);
+  --shadow-card-hover: 0 4px 8px rgba(27, 36, 54, 0.06), 0 16px 32px rgba(27, 36, 54, 0.1);
+
+  /* ---- 间距刻度 ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-body);
+  background: var(--color-paper);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ---- 通用：词典式标题 ---- */
+.dict-heading {
+  font-family: var(--font-display);
+  color: var(--color-ink);
+  letter-spacing: -0.01em;
+}
+
+/* ---- 通用：卡片目录标签（艾宾浩斯 8 阶段点阵，可复用的签名元素） ---- */
+.stage-dots {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+.stage-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-border);
+}
+.stage-dots span.filled {
+  background: var(--color-primary);
+}
+
+/* ---- 通用：卡片基础样式 ---- */
+.card-base {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.card-base:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-2px);
+}
+
+/* ---- Element Plus 主题变量覆盖（局部生效即可，不强制全局 override） ---- */
+.el-button--primary {
+  --el-button-bg-color: var(--color-primary);
+  --el-button-border-color: var(--color-primary);
+  --el-button-hover-bg-color: var(--color-primary-deep);
+  --el-button-hover-border-color: var(--color-primary-deep);
+}
+.el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 1px var(--color-primary) inset !important;
+}
+/* Forest learning identity */
+:root { --color-ink:#102318; --color-ink-soft:#587061; --color-paper:#f4f1e8; --color-paper-warm:#fffdf7; --color-border:#d6ddc9; --color-border-soft:#e7eadf; --color-primary:#245b3c; --color-primary-deep:#0d2617; --color-primary-tint:#dff3bc; --color-moss:#4d7a41; --color-moss-tint:#e3f0d3; --radius-card:22px; --shadow-card:0 10px 35px rgba(24,47,30,.08); --shadow-card-hover:0 18px 48px rgba(24,47,30,.15); }
+body { background-image:radial-gradient(circle at 8% 0%,rgba(198,241,157,.38),transparent 28rem),radial-gradient(circle at 92% 95%,rgba(193,220,171,.45),transparent 28rem); }

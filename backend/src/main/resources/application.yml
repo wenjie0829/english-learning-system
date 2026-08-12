@@ -42,7 +42,6 @@ ai:
   api-key: ${DEEPSEEK_API_KEY:sk-your-key-here}
   api-url: https://api.deepseek.com/v1/chat/completions
   model: ${AI_MODEL:deepseek-v4-flash}
-
 file:
   upload-dir: /app/uploads
   audio-dir: /app/uploads/audio

@@ -41,7 +41,7 @@ jwt:
 
 # AI Configuration (OpenAI or other AI service)
 ai:
-  api-key: sk-b17ae189a7474e50b645addf3b0fc853
+  api-key: ${DEEPSEEK_API_KEY:sk-your-key-here}
   api-url: https://api.openai.com/v1/chat/completions
   model: deepseek-v4-flash
 

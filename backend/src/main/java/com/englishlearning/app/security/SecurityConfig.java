@@ -63,36 +63,19 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // 注意：现在不再用 server.servlet.context-path，
-                // 而是用 WebConfig 只给 @RestController 加 /api 前缀，
-                // 所以这里的接口路径要写完整的 /api/xxx，
-                // 但静态首页（前端页面）路径不带 /api，需要单独放行。
+                // 真正需要保护的只有 /api/** 下的数据接口。
+                // 前端是单页应用（SPA），/admin、/login、/learn 这些路径
+                // 只是浏览器地址栏里"看起来像"的路径，实际都是同一个 index.html，
+                // 由 Vue Router 在浏览器里接管路由，这些路径本身不涉及任何数据，
+                // 直接放行，避免用户刷新页面时被 Security 拦成 403。
+                // 真正的数据保护发生在下面 /api/** 这一层。
 
-                // 放行前端静态资源，不需要登录也能打开网页
-                .requestMatchers(
-                        "/",
-                        "/index.html",
-                        "/favicon.ico",
-                        "/assets/**",
-                        "/static/**",
-                        "/*.js",
-                        "/*.css",
-                        "/*.svg",
-                        "/*.png",
-                        "/*.ico",
-                        "/*.json"
-                ).permitAll()
-
-                // 公开接口，加上 /api 前缀
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/public/**").permitAll()
-
-                // /error 不受 /api 前缀影响（它是 Spring Boot 内置的 @Controller，不是 @RestController），
-                // 文件过大等异常会被转发到这里统一处理，必须放行。
                 .requestMatchers("/error").permitAll()
-
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                .anyRequest().authenticated()
+                .requestMatchers("/api/**").authenticated()
+                .anyRequest().permitAll()
             )
             .authenticationProvider(authenticationProvider())
             .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);

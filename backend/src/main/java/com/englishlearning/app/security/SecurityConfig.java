@@ -63,15 +63,35 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // 注意：这里不要写 /api 前缀。
-                // server.servlet.context-path=/api 会在请求到达这里之前就被容器剥离，
-                // Security 实际比对的是去掉 context-path 之后的路径。
-                .requestMatchers("/auth/**").permitAll()
-                .requestMatchers("/public/**").permitAll()
-                // /error 必须放行：文件过大等异常会被 Spring 转发到这个路径统一处理，
-                // 如果这里也要求登录认证，错误响应本身会被拦截，前端只能看到含糊的连接错误。
+                // 注意：现在不再用 server.servlet.context-path，
+                // 而是用 WebConfig 只给 @RestController 加 /api 前缀，
+                // 所以这里的接口路径要写完整的 /api/xxx，
+                // 但静态首页（前端页面）路径不带 /api，需要单独放行。
+
+                // 放行前端静态资源，不需要登录也能打开网页
+                .requestMatchers(
+                        "/",
+                        "/index.html",
+                        "/favicon.ico",
+                        "/assets/**",
+                        "/static/**",
+                        "/*.js",
+                        "/*.css",
+                        "/*.svg",
+                        "/*.png",
+                        "/*.ico",
+                        "/*.json"
+                ).permitAll()
+
+                // 公开接口，加上 /api 前缀
+                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/public/**").permitAll()
+
+                // /error 不受 /api 前缀影响（它是 Spring Boot 内置的 @Controller，不是 @RestController），
+                // 文件过大等异常会被转发到这里统一处理，必须放行。
                 .requestMatchers("/error").permitAll()
-                .requestMatchers("/admin/**").hasRole("ADMIN")
+
+                .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
             )
             .authenticationProvider(authenticationProvider())

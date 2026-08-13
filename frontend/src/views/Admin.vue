@@ -111,10 +111,28 @@
             style="width: 240px"
             clearable
           />
-          <button class="primary-btn small" @click="openWordDialog(null)">+ 新增单词</button>
+          <div style="display: flex; gap: 12px; align-items: center">
+            <span v-if="selectedWordIds.length" style="font-size: 13px; color: var(--color-ink-soft)">
+              已选中 {{ selectedWordIds.length }} 项
+            </span>
+            <el-button
+              v-if="selectedWordIds.length"
+              type="danger"
+              size="small"
+              @click="onBatchDeleteWords"
+            >批量删除</el-button>
+            <button class="primary-btn small" @click="openWordDialog(null)">+ 新增单词</button>
+          </div>
         </div>
 
-        <el-table :data="filteredWords" v-loading="wordsLoading" style="width: 100%">
+        <el-table
+          :data="filteredWords"
+          v-loading="wordsLoading"
+          style="width: 100%"
+          row-key="id"
+          @selection-change="onWordSelectionChange"
+        >
+          <el-table-column type="selection" width="46" />
           <el-table-column prop="id" label="ID" width="70" />
           <el-table-column prop="word" label="单词" width="140" />
           <el-table-column prop="phonetic" label="音标" width="120">
@@ -326,6 +344,7 @@ import {
   createWord as apiCreateWord,
   updateWord as apiUpdateWord,
   deleteWord as apiDeleteWord,
+  batchDeleteWords,
   getExampleSentences,
   addExampleSentence,
   deleteExampleSentence,
@@ -496,6 +515,27 @@ const onDeleteWord = async (row) => {
     if (e !== 'cancel') console.error(e)
   }
 }
+// ---------- 批量删除 ----------
+const selectedWordIds = ref([])
+const onWordSelectionChange = (rows) => {
+  selectedWordIds.value = rows.map((r) => r.id)
+}
+const onBatchDeleteWords = async () => {
+  try {
+    await ElMessageBox.confirm(
+      `确认删除选中的 ${selectedWordIds.value.length} 个单词？关联的例句、学习记录也会一并删除，此操作不可恢复。`,
+      '请确认',
+      { type: 'warning' }
+    )
+    await batchDeleteWords(selectedWordIds.value)
+    ElMessage.success('已删除')
+    selectedWordIds.value = []
+    loadWords()
+  } catch (e) {
+    if (e !== 'cancel') console.error(e)
+  }
+}
+
 
 // ---------- 例句管理 ----------
 const exampleDialogVisible = ref(false)

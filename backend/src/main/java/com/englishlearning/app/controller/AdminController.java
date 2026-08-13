@@ -104,6 +104,11 @@ public class AdminController {
         return ResponseEntity.ok().build();
     }
 
+    @DeleteMapping("/words/batch")
+    public ResponseEntity<Map<String, Object>> deleteWords(@RequestBody List<Long> ids) {
+        return ResponseEntity.ok(wordService.deleteWords(ids));
+    }
+    
     @GetMapping("/words/{id}/examples")
     public ResponseEntity<List<ExampleSentence>> getExampleSentences(@PathVariable Long id) {
         return ResponseEntity.ok(wordService.getExampleSentences(id));

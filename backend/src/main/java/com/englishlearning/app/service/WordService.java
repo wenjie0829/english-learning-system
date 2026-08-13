@@ -7,7 +7,9 @@ import com.englishlearning.app.repository.WordRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -65,6 +67,20 @@ public class WordService {
     @Transactional
     public void deleteWord(Long id) {
         wordRepository.deleteById(id);
+    }
+
+    @Transactional
+    public Map<String, Object> deleteWords(List<Long> ids) {
+        int deleted = 0;
+        for (Long id : ids) {
+            if (wordRepository.existsById(id)) {
+                wordRepository.deleteById(id);
+                deleted++;
+            }
+        }
+        Map<String, Object> result = new HashMap<>();
+        result.put("deleted", deleted);
+        return result;
     }
 
     public List<ExampleSentence> getExampleSentences(Long wordId) {

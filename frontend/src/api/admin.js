@@ -47,6 +47,10 @@ export const deleteWord = (id) => {
   return request({ url: `/admin/words/${id}`, method: 'delete' })
 }
 
+export const batchDeleteWords = (ids) => {
+  return request({ url: '/admin/words/batch', method: 'delete', data: ids })
+}
+
 export const getExampleSentences = (wordId) => {
   return request({ url: `/admin/words/${wordId}/examples`, method: 'get' })
 }

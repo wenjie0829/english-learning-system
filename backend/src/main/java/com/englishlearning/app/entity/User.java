@@ -11,7 +11,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "user")
+// 改成 "users"：user 在 PostgreSQL 里是保留关键字，容易踩坑，换个安全的表名
+@Table(name = "users")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -37,8 +38,9 @@ public class User {
     private UserRole role = UserRole.STUDENT;
 
     // 账号是否启用；管理员可以通过后台封禁/解封用户
-    // columnDefinition 保证 ddl-auto:update 给已有数据加这一列时有默认值，不会因 NOT NULL 报错
-    @Column(nullable = false, columnDefinition = "TINYINT(1) DEFAULT 1")
+    // 去掉了 MySQL 专属的 TINYINT(1)，PostgreSQL 用 boolean。
+    // Java 字段已经有默认值 true，插入新数据时够用了，不再需要写死 columnDefinition。
+    @Column(nullable = false)
     private Boolean enabled = true;
 
     @CreationTimestamp

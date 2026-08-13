@@ -13,6 +13,7 @@ com\englishlearning\app\dto\ImportWordItem.class
 com\englishlearning\app\EnglishLearningApplication.class
 com\englishlearning\app\entity\LearningRecord.class
 com\englishlearning\app\entity\User.class
+com\englishlearning\app\config\WebConfig.class
 com\englishlearning\app\controller\LearningController.class
 com\englishlearning\app\repository\FavoriteRepository.class
 com\englishlearning\app\service\WordBookService.class

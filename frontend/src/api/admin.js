@@ -65,9 +65,6 @@ export const batchDeleteWords = (ids) => {
 
 // 单次请求最多处理20个单词（跟后端 MAX_BATCH_SIZE 对应），超时给足余量
 export const generateExamplesForWords = (wordIds, count = 3) => {
-
-// 单次请求最多处理20个单词（跟后端 MAX_BATCH_SIZE 对应），超时给足余量
-export const generateExamplesForWords = (wordIds, count = 3) => {
   return request({
     url: '/admin/words/generate-examples',
     method: 'post',

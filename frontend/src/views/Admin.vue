@@ -111,28 +111,39 @@
             style="width: 240px"
             clearable
           />
-          <div style="display: flex; gap: 12px; align-items: center">
-            <span v-if="selectedWordIds.length" style="font-size: 13px; color: var(--color-ink-soft)">
-              已选中 {{ selectedWordIds.length }} 项
+          <div class="toolbar-actions">
+            <span v-if="generatingExamples" class="progress-hint">
+              正在生成例句 {{ generatingProgress.done }}/{{ generatingProgress.total }}…
             </span>
-            <el-button
-              v-if="selectedWordIds.length"
-              type="danger"
-              size="small"
+            <button
+              class="primary-btn small ghost"
+              :disabled="!selectedWordIds.length || generatingExamples"
+              @click="onGenerateExamples"
+            >
+              {{ generatingExamples ? '生成中…' : `AI 批量生成例句${selectedWordIds.length ? '（' + selectedWordIds.length + '）' : ''}` }}
+            </button>
+            <button
+              class="primary-btn small danger"
+              :disabled="!selectedWordIds.length || generatingExamples"
               @click="onBatchDeleteWords"
-            >批量删除</el-button>
-            <button class="primary-btn small" @click="openWordDialog(null)">+ 新增单词</button>
+            >
+              批量删除{{ selectedWordIds.length ? '（' + selectedWordIds.length + '）' : '' }}
+            </button>
+            <button class="primary-btn small" :disabled="generatingExamples" @click="openWordDialog(null)">+ 新增单词</button>
           </div>
         </div>
+        <p class="import-hint">
+          勾选下面的单词，点"AI 批量生成例句"，会给<strong>还没有例句的单词</strong>各生成 3 条地道例句+翻译（每 5 个一批，逐批处理，避免一次性请求太多导致超时）；
+          已经有例句的单词会自动跳过，不会重复叠加。也可以勾选后点"批量删除"一次性清理掉一批单词。
+        </p>
 
         <el-table
           :data="filteredWords"
           v-loading="wordsLoading"
           style="width: 100%"
-          row-key="id"
           @selection-change="onWordSelectionChange"
         >
-          <el-table-column type="selection" width="46" />
+          <el-table-column type="selection" width="45" />
           <el-table-column prop="id" label="ID" width="70" />
           <el-table-column prop="word" label="单词" width="140" />
           <el-table-column prop="phonetic" label="音标" width="120">
@@ -212,6 +223,8 @@
         <p class="import-hint">
           支持 PDF、TXT 纯文本、Word（.docx）三种文件格式，也可以直接粘贴文本。解析结果仅供参考（排版千差万别，可能有漏识别或识别错误），
           请在下方核对/编辑后再确认导入。已存在于词库的单词默认不勾选，避免重复。
+          <span v-if="useAi">开启了 AI 智能解析：如果原文里有配套例句，会一并提取，确认导入时自动写入。</span>
+          <span v-else>规则匹配模式不提取例句（只有单词本身）；如果需要连例句一起导入，请打开上面的"使用 AI 智能解析"开关。</span>
           <br />
           <strong>小贴士</strong>：如果上传文件解析效果不好（比如原始材料排版比较复杂），可以先自己在别处把文字整理成"一行一个单词"的样子，再用"粘贴文本"这个方式导入，成功率会高很多。
         </p>
@@ -248,6 +261,14 @@
             </el-table-column>
             <el-table-column label="释义" min-width="200">
               <template #default="{ row }"><el-input v-model="row.definition" size="small" /></template>
+            </el-table-column>
+            <el-table-column label="例句" width="80">
+              <template #default="{ row }">
+                <span v-if="row.examples && row.examples.length" class="status-pill ok">
+                  {{ row.examples.length }} 条
+                </span>
+                <span v-else style="color: var(--color-border)">—</span>
+              </template>
             </el-table-column>
             <el-table-column label="状态" width="90">
               <template #default="{ row }">
@@ -344,7 +365,6 @@ import {
   createWord as apiCreateWord,
   updateWord as apiUpdateWord,
   deleteWord as apiDeleteWord,
-  batchDeleteWords,
   getExampleSentences,
   addExampleSentence,
   deleteExampleSentence,
@@ -352,7 +372,9 @@ import {
   confirmPdfImport,
   parseTextImport,
   parseAiFileImport,
-  parseAiTextImport
+  parseAiTextImport,
+  generateExamplesForWords,
+  batchDeleteWords
 } from '@/api/admin'
 
 const router = useRouter()
@@ -417,6 +439,85 @@ const onDeleteUser = async (row) => {
 const words = ref([])
 const wordsLoading = ref(false)
 const wordSearchKeyword = ref('')
+const selectedWordIds = ref([])
+const generatingExamples = ref(false)
+const generatingProgress = ref({ done: 0, total: 0 })
+
+// 每批处理的单词数，跟后端 AdminService.MAX_BATCH_SIZE（20）留出余量，
+// 一次调用几个单词更快返回，卡住也只影响一小批，不会拖垮整个请求。
+const GENERATE_CHUNK_SIZE = 5
+
+const onWordSelectionChange = (selection) => {
+  selectedWordIds.value = selection.map((row) => row.id)
+}
+
+const onGenerateExamples = async () => {
+  if (!selectedWordIds.value.length) return
+  const ids = [...selectedWordIds.value]
+
+  if (ids.length > 50) {
+    try {
+      await ElMessageBox.confirm(
+        `你选中了 ${ids.length} 个单词，数量较多，处理时间会比较长（每 ${GENERATE_CHUNK_SIZE} 个一批逐批进行）。确认继续吗？`,
+        '请确认',
+        { type: 'warning' }
+      )
+    } catch {
+      return
+    }
+  }
+
+  generatingExamples.value = true
+  generatingProgress.value = { done: 0, total: ids.length }
+
+  let totalGenerated = 0
+  let totalSkipped = 0
+  let totalFailed = 0
+  let totalExamples = 0
+
+  for (let i = 0; i < ids.length; i += GENERATE_CHUNK_SIZE) {
+    const chunk = ids.slice(i, i + GENERATE_CHUNK_SIZE)
+    try {
+      const result = await generateExamplesForWords(chunk, 3)
+      totalGenerated += result.wordsGenerated || 0
+      totalSkipped += result.wordsSkipped || 0
+      totalFailed += result.wordsFailed || 0
+      totalExamples += result.totalExamplesCreated || 0
+    } catch (e) {
+      console.error(e)
+      totalFailed += chunk.length
+    }
+    generatingProgress.value.done = Math.min(i + GENERATE_CHUNK_SIZE, ids.length)
+  }
+
+  generatingExamples.value = false
+  ElMessage.success(
+    `完成：成功给 ${totalGenerated} 个单词生成了共 ${totalExamples} 条例句`
+    + (totalSkipped ? `，跳过 ${totalSkipped} 个已有例句的单词` : '')
+    + (totalFailed ? `，${totalFailed} 个单词生成失败` : '')
+  )
+  loadWords()
+}
+
+const onBatchDeleteWords = async () => {
+  if (!selectedWordIds.value.length) return
+  try {
+    await ElMessageBox.confirm(
+      `确认删除选中的 ${selectedWordIds.value.length} 个单词？关联的例句、学习记录也会一并删除，此操作不可恢复。`,
+      '请确认',
+      { type: 'warning' }
+    )
+    await batchDeleteWords(selectedWordIds.value)
+    ElMessage.success('已删除')
+    selectedWordIds.value = []
+    loadWords()
+  } catch (e) {
+    if (e !== 'cancel') {
+      console.error(e)
+      ElMessage.error('删除失败')
+    }
+  }
+}
 
 const filteredWords = computed(() => {
   if (!wordSearchKeyword.value) return words.value
@@ -515,27 +616,6 @@ const onDeleteWord = async (row) => {
     if (e !== 'cancel') console.error(e)
   }
 }
-// ---------- 批量删除 ----------
-const selectedWordIds = ref([])
-const onWordSelectionChange = (rows) => {
-  selectedWordIds.value = rows.map((r) => r.id)
-}
-const onBatchDeleteWords = async () => {
-  try {
-    await ElMessageBox.confirm(
-      `确认删除选中的 ${selectedWordIds.value.length} 个单词？关联的例句、学习记录也会一并删除，此操作不可恢复。`,
-      '请确认',
-      { type: 'warning' }
-    )
-    await batchDeleteWords(selectedWordIds.value)
-    ElMessage.success('已删除')
-    selectedWordIds.value = []
-    loadWords()
-  } catch (e) {
-    if (e !== 'cancel') console.error(e)
-  }
-}
-
 
 // ---------- 例句管理 ----------
 const exampleDialogVisible = ref(false)
@@ -673,7 +753,8 @@ const confirmImportSelected = async () => {
   importing.value = true
   try {
     const result = await confirmPdfImport(selected)
-    ElMessage.success(`成功导入 ${result.imported} 个单词，跳过 ${result.skipped} 个重复单词`)
+    const exampleMsg = result.examplesImported ? `，附带导入 ${result.examplesImported} 条例句` : ''
+    ElMessage.success(`成功导入 ${result.imported} 个单词，跳过 ${result.skipped} 个重复单词${exampleMsg}`)
     importItems.value = []
     importFile.value = null
     pasteText.value = ''
@@ -828,6 +909,42 @@ onMounted(() => {
   align-items: center;
   margin-bottom: var(--space-4);
 }
+.toolbar-actions {
+  display: flex;
+  gap: var(--space-3);
+}
+.primary-btn.small.ghost {
+  background: transparent;
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+}
+.primary-btn.small.ghost:hover:not(:disabled) {
+  background: var(--color-primary-tint);
+}
+.primary-btn.small.ghost:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-color: var(--color-border);
+  color: var(--color-ink-soft);
+}
+.primary-btn.small.danger {
+  background: transparent;
+  color: var(--color-rust);
+  border: 1px solid var(--color-rust);
+}
+.primary-btn.small.danger:hover:not(:disabled) {
+  background: var(--color-rust-tint);
+}
+.primary-btn.small.danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-color: var(--color-border);
+  color: var(--color-ink-soft);
+}
+.progress-hint {
+  font-size: 13px;
+  color: var(--color-primary);
+}
 
 .primary-btn.small {
   height: 34px;
@@ -979,7 +1096,4 @@ onMounted(() => {
   font-size: 13px;
   color: var(--color-ink-soft);
 }
-</style>
-<style>
-.admin-page{min-height:100vh;background:#f4f1e8;background-image:radial-gradient(circle at 100% 0%,#dff3bc 0 14%,transparent 14.4%)}.top-bar{margin:18px auto 0;width:calc(100% - 36px);max-width:1320px;border:0;border-radius:18px;background:#0d2617;color:#fff}.top-bar-inner{padding:16px 28px}.brand-mark{background:#c6f19d;border-radius:50%}.brand-mark span{color:#102318}.brand-name{color:#fff}.user-greeting{color:#d6e4cf}.ghost-btn{border-radius:999px;border-color:rgba(198,241,157,.55);color:#c6f19d}.main-content{max-width:1280px;padding-top:42px}.mini-stat,.panel{border-color:#d6ddc9;border-radius:20px;background:#fffdf7;box-shadow:0 12px 30px rgba(24,47,30,.08)}.mini-stat:first-child{background:#0d2617}.mini-stat:first-child .mini-stat-label,.mini-stat:first-child .mini-stat-value{color:#fff}.tab-strip{gap:12px;border:0}.tab-btn{padding:9px 16px;margin:0;border-radius:999px;background:#e8ecdf}.tab-btn.active{color:#102318;border:0;background:#c6f19d}.primary-btn.small{border-radius:999px;background:#0d2617}.panel-toolbar{gap:16px}.status-pill{border-radius:999px}
 </style>

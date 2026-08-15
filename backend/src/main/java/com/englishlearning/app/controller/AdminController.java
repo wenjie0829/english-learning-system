@@ -104,11 +104,6 @@ public class AdminController {
         return ResponseEntity.ok().build();
     }
 
-    @DeleteMapping("/words/batch")
-    public ResponseEntity<Map<String, Object>> deleteWords(@RequestBody List<Long> ids) {
-        return ResponseEntity.ok(wordService.deleteWords(ids));
-    }
-    
     @GetMapping("/words/{id}/examples")
     public ResponseEntity<List<ExampleSentence>> getExampleSentences(@PathVariable Long id) {
         return ResponseEntity.ok(wordService.getExampleSentences(id));
@@ -123,5 +118,27 @@ public class AdminController {
     public ResponseEntity<Void> deleteExampleSentence(@PathVariable Long exampleId) {
         wordService.deleteExampleSentence(exampleId);
         return ResponseEntity.ok().build();
+    }
+
+    // ================== 批量生成例句（AI 现生成，不依赖原文）==================
+
+    @PostMapping("/words/generate-examples")
+    public ResponseEntity<?> generateExamplesForWords(@RequestBody Map<String, Object> body) {
+        try {
+            @SuppressWarnings("unchecked")
+            List<Object> rawIds = (List<Object>) body.get("wordIds");
+            if (rawIds == null || rawIds.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("message", "请至少选择一个单词"));
+            }
+            List<Long> wordIds = rawIds.stream()
+                    .map(id -> Long.parseLong(id.toString()))
+                    .toList();
+
+            int count = body.get("count") != null ? Integer.parseInt(body.get("count").toString()) : 3;
+            Map<String, Object> result = adminService.generateExamplesForWords(wordIds, count);
+            return ResponseEntity.ok(result);
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
     }
 }

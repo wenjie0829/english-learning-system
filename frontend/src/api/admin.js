@@ -47,10 +47,6 @@ export const deleteWord = (id) => {
   return request({ url: `/admin/words/${id}`, method: 'delete' })
 }
 
-export const batchDeleteWords = (ids) => {
-  return request({ url: '/admin/words/batch', method: 'delete', data: ids })
-}
-
 export const getExampleSentences = (wordId) => {
   return request({ url: `/admin/words/${wordId}/examples`, method: 'get' })
 }
@@ -61,6 +57,23 @@ export const addExampleSentence = (wordId, data) => {
 
 export const deleteExampleSentence = (exampleId) => {
   return request({ url: `/admin/words/examples/${exampleId}`, method: 'delete' })
+}
+
+export const batchDeleteWords = (ids) => {
+  return request({ url: '/admin/words/batch', method: 'delete', data: ids })
+}
+
+// 单次请求最多处理20个单词（跟后端 MAX_BATCH_SIZE 对应），超时给足余量
+export const generateExamplesForWords = (wordIds, count = 3) => {
+
+// 单次请求最多处理20个单词（跟后端 MAX_BATCH_SIZE 对应），超时给足余量
+export const generateExamplesForWords = (wordIds, count = 3) => {
+  return request({
+    url: '/admin/words/generate-examples',
+    method: 'post',
+    data: { wordIds, count },
+    timeout: 150000
+  })
 }
 
 // ---------- PDF 单词书导入 ----------

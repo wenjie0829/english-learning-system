@@ -113,11 +113,21 @@ const currentWord = computed(() => {
   return currentReviewRecord.value.word || {}
 })
 
+// Fisher-Yates 洗牌算法，把数组顺序完全打乱，每次刷新结果都不一样
+const shuffleArray = (arr) => {
+  const result = [...arr]
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[result[i], result[j]] = [result[j], result[i]]
+  }
+  return result
+}
+
 const loadReviewWords = async () => {
   try {
     loading.value = true
     const data = await getDueReviews(userStore.user.id)
-    reviewWords.value = data
+    reviewWords.value = shuffleArray(data)
     if (reviewWords.value.length > 0) {
       await loadExampleSentences(currentWord.value.id)
     }

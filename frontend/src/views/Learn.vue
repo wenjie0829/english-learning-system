@@ -150,11 +150,21 @@ const isFavorited = computed(() => {
   return currentWord.value.id != null && favoriteWordIds.value.has(currentWord.value.id)
 })
 
+// Fisher-Yates 洗牌算法，把数组顺序完全打乱，每次刷新结果都不一样
+const shuffleArray = (arr) => {
+  const result = [...arr]
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[result[i], result[j]] = [result[j], result[i]]
+  }
+  return result
+}
+
 const loadWords = async () => {
   try {
     loading.value = true
     const data = await getAllWords()
-    words.value = data
+    words.value = shuffleArray(data)
     if (words.value.length > 0) {
       await loadExampleSentences(words.value[0].id)
     }

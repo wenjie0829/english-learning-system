@@ -51,8 +51,8 @@
                   <el-button @click="playAudio(favorite.word)" type="primary" size="small">
                     <el-icon><Microphone /></el-icon> 发音
                   </el-button>
-                  <el-button @click="viewDetail(favorite.word)" type="info" size="small">
-                    <el-icon><View /></el-icon> 详情
+                  <el-button @click="viewDetail(favorite.word)" class="detail-btn" size="small">
+                  <el-icon><View /></el-icon> 详情
                   </el-button>
                 </div>
               </div>
@@ -213,5 +213,14 @@ onMounted(() => {
 .favorite-actions {
   display: flex;
   gap: 10px;
+}
+
+.detail-btn {
+  --el-button-bg-color: var(--color-amber-tint);
+  --el-button-border-color: var(--color-amber);
+  --el-button-text-color: var(--color-amber);
+  --el-button-hover-bg-color: var(--color-amber);
+  --el-button-hover-border-color: var(--color-amber);
+  --el-button-hover-text-color: #fff;
 }
 </style>

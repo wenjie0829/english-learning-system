@@ -47,9 +47,9 @@
                   <el-button @click="playAudio(wrongWord.word)" type="primary" size="small">
                     <el-icon><Microphone /></el-icon> 发音
                   </el-button>
-                  <el-button @click="viewDetail(wrongWord.word)" type="info" size="small">
-                    <el-icon><View /></el-icon> 详情
-                  </el-button>
+                <el-button @click="viewDetail(wrongWord.word)" class="detail-btn" size="small">
+                <el-icon><View /></el-icon> 详情
+                </el-button>
                   <el-button @click="markAsResolved(wrongWord.word.id)" type="success" size="small">
                     <el-icon><Check /></el-icon> 已掌握
                   </el-button>
@@ -224,5 +224,14 @@ onMounted(() => {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.detail-btn {
+  --el-button-bg-color: var(--color-amber-tint);
+  --el-button-border-color: var(--color-amber);
+  --el-button-text-color: var(--color-amber);
+  --el-button-hover-bg-color: var(--color-amber);
+  --el-button-hover-border-color: var(--color-amber);
+  --el-button-hover-text-color: #fff;
 }
 </style>

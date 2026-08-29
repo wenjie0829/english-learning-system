@@ -6,7 +6,7 @@
         <div class="brand-mark">
           <span class="brand-mark-glyph">词</span>
         </div>
-        <h1 class="brand-title dict-heading">智能英语学习系统</h1>
+        <h1 class="brand-title dict-heading">自在背单词</h1>
         <p class="brand-tagline">用艾宾浩斯遗忘曲线，把单词真正记住</p>
 
         <div class="curve-wrap">

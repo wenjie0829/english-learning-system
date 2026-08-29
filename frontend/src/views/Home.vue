@@ -4,7 +4,7 @@
       <div class="top-bar-inner">
         <div class="brand">
           <div class="brand-mark"><span>词</span></div>
-          <span class="brand-name dict-heading">智能英语学习系统</span>
+          <span class="brand-name dict-heading">自在背单词</span>
         </div>
         <div class="user-zone">
           <span class="user-greeting">欢迎，{{ userStore.user?.username }}</span>

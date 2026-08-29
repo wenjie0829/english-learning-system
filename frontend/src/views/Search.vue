@@ -101,12 +101,13 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { searchWords, getExampleSentences } from '@/api/word'
 
 const router = useRouter()
+const route = useRoute()
 
 const searchKeyword = ref('')
 const searchResults = ref([])
@@ -175,6 +176,26 @@ const getDifficultyText = (level) => {
   }
   return texts[level] || level
 }
+
+// 从"我的收藏"、"错词本"点"详情"跳转过来时，地址栏会带上 ?word=xxx 这个参数，
+// 进页面时如果检测到这个参数，自动填进搜索框并直接触发一次搜索，
+// 不用用户自己再手动输入一遍要查的单词
+onMounted(async () => {
+  const wordFromQuery = route.query.word
+  if (wordFromQuery) {
+    searchKeyword.value = wordFromQuery
+    await handleSearch()
+
+    // 从收藏/错词本跳转过来的，如果搜索结果里正好有跟这个单词完全匹配的，
+    // 直接自动打开详情弹窗，不用用户自己再点一次
+    const exactMatch = searchResults.value.find(
+      (w) => w.word.toLowerCase() === wordFromQuery.toLowerCase()
+    )
+    if (exactMatch) {
+      showWordDetail(exactMatch)
+    }
+  }
+})
 
 const goBack = () => {
   router.push('/')

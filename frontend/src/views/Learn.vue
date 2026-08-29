@@ -86,7 +86,7 @@
                     <span class="example-number">{{ index + 1 }}.</span>
                     <span>{{ example.sentence }}</span>
                     <el-button 
-                      @click="playExampleAudio(example.audioUrl)" 
+                      @click="playExampleAudio(example)" 
                       type="primary" 
                       circle 
                       size="small"
@@ -206,10 +206,15 @@ const playAudio = () => {
   }
 }
 
-const playExampleAudio = (audioUrl) => {
-  if (audioUrl) {
-    const audio = new Audio(audioUrl)
+const playExampleAudio = (example) => {
+  if (example.audioUrl) {
+    const audio = new Audio(example.audioUrl)
     audio.play()
+  } else {
+    // 跟单词发音一样，没有真实录音文件时用浏览器TTS朗读整句例句
+    const utterance = new SpeechSynthesisUtterance(example.sentence)
+    utterance.lang = 'en-US'
+    speechSynthesis.speak(utterance)
   }
 }
 

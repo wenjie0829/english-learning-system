@@ -195,11 +195,15 @@ const loadExampleSentences = async (wordId) => {
 }
 
 const playAudio = () => {
+  // 每次开始朗读前先清空浏览器TTS的播放队列：
+  // 一是让新点击能立刻打断上一个还没读完的内容，而不是排队等待；
+  // 二是规避Chrome自身一个众所周知的老毛病——不清空队列有时会导致同一句话反复循环朗读。
+  speechSynthesis.cancel()
+
   if (currentWord.value.audioUrl) {
     const audio = new Audio(currentWord.value.audioUrl)
     audio.play()
   } else {
-    // 使用浏览器TTS作为备选
     const utterance = new SpeechSynthesisUtterance(currentWord.value.word)
     utterance.lang = 'en-US'
     speechSynthesis.speak(utterance)
@@ -207,11 +211,12 @@ const playAudio = () => {
 }
 
 const playExampleAudio = (example) => {
+  speechSynthesis.cancel()
+
   if (example.audioUrl) {
     const audio = new Audio(example.audioUrl)
     audio.play()
   } else {
-    // 跟单词发音一样，没有真实录音文件时用浏览器TTS朗读整句例句
     const utterance = new SpeechSynthesisUtterance(example.sentence)
     utterance.lang = 'en-US'
     speechSynthesis.speak(utterance)

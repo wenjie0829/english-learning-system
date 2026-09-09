@@ -1,75 +1,69 @@
 <template>
-  <div class="favorites-container">
-    <el-container>
-      <el-header class="header">
-        <div class="header-content">
-          <el-button @click="goBack" type="primary" plain>
-            <el-icon><ArrowLeft /></el-icon> 返回
-          </el-button>
-          <h2>我的收藏</h2>
+  <div class="favorites-page">
+    <AppHeader mode="simple" title="我的收藏" back />
+    <main class="page-shell list-main">
+      <!-- 加载中 -->
+      <div v-if="loading" class="list-state card">
+        <el-icon class="is-loading" :size="36"><Loading /></el-icon>
+        <p>正在加载收藏…</p>
+      </div>
+
+      <!-- 空状态 -->
+      <div v-else-if="favorites.length === 0" class="list-state card">
+        <el-icon :size="48" color="var(--color-amber)"><Star /></el-icon>
+        <h3>还没有收藏的单词</h3>
+        <p>学习或查单词时点一下收藏，就能在这里集中复习</p>
+        <div class="state-btns">
+          <el-button type="primary" round @click="goSearch">去查单词</el-button>
+          <el-button round @click="goHome">返回首页</el-button>
         </div>
-      </el-header>
-      
-      <el-main class="main-content">
-        <div v-if="loading" class="loading-container">
-          <el-icon class="is-loading" size="48"><Loading /></el-icon>
-          <p>加载中...</p>
-        </div>
-        
-        <div v-else-if="favorites.length === 0" class="empty-container">
-          <el-empty description="暂无收藏的单词">
-            <el-button @click="goBack" type="primary">去学习</el-button>
-          </el-empty>
-        </div>
-        
-        <div v-else class="favorites-list">
-          <div 
-            v-for="favorite in favorites" 
-            :key="favorite.id" 
-            class="favorite-item"
-          >
-            <el-card shadow="hover">
-              <div class="favorite-content">
-                <div class="favorite-header">
-                  <h3>{{ favorite.word.word }}</h3>
-                  <el-button 
-                    @click="handleRemoveFromFavorites(favorite.word.id)" 
-                    type="danger" 
-                    circle
-                    size="small"
-                  >
-                    <el-icon><Delete /></el-icon>
-                  </el-button>
-                </div>
-                <div class="favorite-phonetic" v-if="favorite.word.phonetic">
-                  {{ favorite.word.phonetic }}
-                </div>
-                <div class="favorite-definition">
-                  {{ favorite.word.definition }}
-                </div>
-                <div class="favorite-actions">
-                  <el-button @click="playAudio(favorite.word)" type="primary" size="small">
-                    <el-icon><Microphone /></el-icon> 发音
-                  </el-button>
-                  <el-button @click="viewDetail(favorite.word)" class="detail-btn" size="small">
-                  <el-icon><View /></el-icon> 详情
-                  </el-button>
-                </div>
-              </div>
-            </el-card>
+      </div>
+
+      <!-- 收藏列表 -->
+      <div v-else class="results-list">
+        <div
+          v-for="favorite in favorites"
+          :key="favorite.id"
+          class="word-card card"
+          @click="viewDetail(favorite.word)"
+        >
+          <div class="word-card-top">
+            <div class="word-head">
+              <h3 class="word-text">{{ favorite.word.word }}</h3>
+              <span v-if="favorite.word.phonetic" class="phonetic">{{ favorite.word.phonetic }}</span>
+            </div>
+            <el-button
+              class="del-btn"
+              circle
+              title="取消收藏"
+              @click.stop="handleRemoveFromFavorites(favorite.word.id)"
+            >
+              <el-icon :size="15"><Delete /></el-icon>
+            </el-button>
+          </div>
+          <p class="word-def">{{ favorite.word.definition }}</p>
+          <div class="word-card-actions">
+            <el-button size="small" round plain type="primary" @click.stop="playAudio(favorite.word)">
+              <el-icon><Microphone /></el-icon> 发音
+            </el-button>
+            <span class="view-more">查看详情 <el-icon><ArrowRight /></el-icon></span>
           </div>
         </div>
-      </el-main>
-    </el-container>
+      </div>
+    </main>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/store/user'
+import AppHeader from '@/components/AppHeader.vue'
 import { getUserFavorites, removeFromFavorites as removeFavoriteApi } from '@/api/learning'
+import {
+  Loading, Star, Delete, Microphone, View, ArrowRight
+} from '@element-plus/icons-vue'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -92,6 +86,17 @@ const loadFavorites = async () => {
 
 const handleRemoveFromFavorites = async (wordId) => {
   try {
+    await ElMessageBox.confirm('取消收藏后，需要重新查找才能再次收藏该单词。', '取消收藏', {
+      confirmButtonText: '取消收藏',
+      cancelButtonText: '再想想',
+      type: 'warning',
+      confirmButtonClass: 'el-button--danger'
+    })
+  } catch {
+    return // 用户点"再想想"，什么都不做
+  }
+
+  try {
     await removeFavoriteApi(userStore.user.id, wordId)
     ElMessage.success('已取消收藏')
     await loadFavorites()
@@ -102,6 +107,7 @@ const handleRemoveFromFavorites = async (wordId) => {
 }
 
 const playAudio = (word) => {
+  speechSynthesis.cancel()
   if (word.audioUrl) {
     const audio = new Audio(word.audioUrl)
     audio.play()
@@ -113,13 +119,12 @@ const playAudio = (word) => {
 }
 
 const viewDetail = (word) => {
-  // Navigate to search with the word as query
+  // 跳转到查单词页，自动带出该词的详情
   router.push({ name: 'Search', query: { word: word.word } })
 }
 
-const goBack = () => {
-  router.push('/')
-}
+const goSearch = () => router.push({ name: 'Search' })
+const goHome = () => router.push('/')
 
 onMounted(() => {
   loadFavorites()
@@ -127,100 +132,110 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.favorites-container {
-  min-height: 100vh;
+.list-main {
+  max-width: 860px;
 }
 
-.header {
-  background: white;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  display: flex;
-  align-items: center;
-  padding: 0 20px;
-}
-
-.header-content {
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.header-content h2 {
-  margin: 0;
-  color: #333;
-}
-
-.main-content {
-  padding: 20px;
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-.loading-container,
-.empty-container {
+/* 加载 / 空状态 */
+.list-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 400px;
-  color: #666;
+  gap: 8px;
+  min-height: 360px;
+  padding: 40px;
+  color: var(--color-ink-soft);
+  text-align: center;
 }
-
-.favorites-list {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
+.list-state h3 {
+  margin: 6px 0 0;
+  font-size: 17px;
+  color: var(--color-ink);
 }
-
-.favorite-item {
-  transition: transform 0.2s;
+.list-state p {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--color-ink-faint);
 }
-
-.favorite-item:hover {
-  transform: translateY(-3px);
-}
-
-.favorite-content {
-  padding: 15px;
-}
-
-.favorite-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-}
-
-.favorite-header h3 {
-  margin: 0;
-  font-size: 24px;
-  color: #333;
-}
-
-.favorite-phonetic {
-  color: #666;
-  font-style: italic;
-  margin-bottom: 8px;
-}
-
-.favorite-definition {
-  color: #666;
-  line-height: 1.6;
-  margin-bottom: 15px;
-}
-
-.favorite-actions {
+.state-btns {
   display: flex;
   gap: 10px;
+  margin-top: 6px;
 }
 
-.detail-btn {
-  --el-button-bg-color: var(--color-amber-tint);
-  --el-button-border-color: var(--color-amber);
-  --el-button-text-color: var(--color-amber);
-  --el-button-hover-bg-color: var(--color-amber);
-  --el-button-hover-border-color: var(--color-amber);
-  --el-button-hover-text-color: #fff;
+/* 收藏列表 */
+.results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.word-card {
+  padding: 20px 22px;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.word-card:hover {
+  transform: translateY(-2px);
+  border-color: #bfe4cf;
+  box-shadow: var(--shadow-card-hover);
+}
+.word-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.word-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.word-text {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--color-ink);
+}
+.phonetic {
+  font-size: 14px;
+  color: var(--color-ink-faint);
+}
+.del-btn {
+  flex-shrink: 0;
+  --el-button-bg-color: #fff;
+  --el-button-border-color: var(--color-border);
+  --el-button-text-color: var(--color-ink-faint);
+  --el-button-hover-bg-color: #fdecea;
+  --el-button-hover-border-color: var(--color-rust);
+  --el-button-hover-text-color: var(--color-rust);
+}
+.word-def {
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--color-ink-soft);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.word-card-actions {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.view-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-primary-deep);
 }
 </style>

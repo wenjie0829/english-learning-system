@@ -1,98 +1,105 @@
 <template>
-  <div class="search-container">
-    <el-container>
-      <el-header class="header">
-        <div class="header-content">
-          <el-button @click="goBack" type="primary" plain>
-            <el-icon><ArrowLeft /></el-icon> 返回
-          </el-button>
-          <h2>单词查询</h2>
-        </div>
-      </el-header>
-      
-      <el-main class="main-content">
-        <div class="search-section">
-          <el-input
-            v-model="searchKeyword"
-            placeholder="请输入单词或释义关键词"
-            size="large"
-            @keyup.enter="handleSearch"
-            clearable
-          >
-            <template #append>
-              <el-button @click="handleSearch" type="primary">
-                <el-icon><Search /></el-icon> 搜索
-              </el-button>
-            </template>
-          </el-input>
-        </div>
-        
-        <div v-if="loading" class="loading-container">
-          <el-icon class="is-loading" size="48"><Loading /></el-icon>
-          <p>搜索中...</p>
-        </div>
-        
-        <div v-else-if="searchResults.length > 0" class="results-section">
-          <div 
-            v-for="word in searchResults" 
-            :key="word.id" 
-            class="word-result-item"
+  <div class="search-page">
+    <AppHeader mode="simple" title="查单词" back />
+    <main class="page-shell search-main">
+      <!-- 搜索框 -->
+      <div class="search-box card">
+        <el-input
+          v-model="searchKeyword"
+          placeholder="输入英文单词或中文释义，回车即可搜索"
+          size="large"
+          clearable
+          @keyup.enter="handleSearch"
+        >
+          <template #prefix>
+            <el-icon><Search /></el-icon>
+          </template>
+        </el-input>
+        <el-button type="primary" size="large" round :loading="loading" @click="handleSearch">
+          搜索
+        </el-button>
+      </div>
+
+      <!-- 搜索中 -->
+      <div v-if="loading" class="list-state card">
+        <el-icon class="is-loading" :size="36"><Loading /></el-icon>
+        <p>正在搜索…</p>
+      </div>
+
+      <template v-else>
+        <!-- 结果列表 -->
+        <div v-if="searchResults.length > 0" class="results-list">
+          <div
+            v-for="word in searchResults"
+            :key="word.id"
+            class="word-card card"
             @click="showWordDetail(word)"
           >
-            <el-card shadow="hover">
-              <div class="word-result-content">
-                <div class="word-result-header">
-                  <h3 class="word-result-text">{{ word.word }}</h3>
-                  <el-tag :type="getDifficultyType(word.difficultyLevel)">
-                    {{ getDifficultyText(word.difficultyLevel) }}
-                  </el-tag>
-                </div>
-                <div class="word-result-phonetic" v-if="word.phonetic">
-                  {{ word.phonetic }}
-                </div>
-                <div class="word-result-definition">
-                  {{ word.definition }}
-                </div>
+            <div class="word-card-top">
+              <div class="word-head">
+                <h3 class="word-text">{{ word.word }}</h3>
+                <span v-if="word.phonetic" class="phonetic">{{ word.phonetic }}</span>
               </div>
-            </el-card>
+              <el-tag :type="getDifficultyType(word.difficultyLevel)" effect="light" round>
+                {{ getDifficultyText(word.difficultyLevel) }}
+              </el-tag>
+            </div>
+            <p class="word-def">{{ word.definition }}</p>
+            <div class="word-card-foot">
+              <span class="view-more">查看详情与例句 <el-icon><ArrowRight /></el-icon></span>
+            </div>
           </div>
         </div>
-        
-        <div v-else-if="hasSearched" class="empty-container">
-          <el-empty description="未找到相关单词" />
+
+        <!-- 无结果 -->
+        <div v-else-if="hasSearched" class="list-state card">
+          <el-icon :size="44" color="var(--color-ink-faint)"><Search /></el-icon>
+          <h3>没有找到相关单词</h3>
+          <p>换个关键词试试，比如只输入单词本身</p>
         </div>
-        
-        <div v-else class="empty-container">
-          <el-empty description="请输入关键词进行搜索" />
+
+        <!-- 初始引导 -->
+        <div v-else class="list-state card">
+          <el-icon :size="44" color="var(--color-ink-faint)"><Search /></el-icon>
+          <h3>输入关键词开始查找</h3>
+          <p>支持英文单词、中文释义的模糊搜索</p>
         </div>
-      </el-main>
-    </el-container>
-    
-    <!-- Word Detail Dialog -->
-    <el-dialog v-model="detailDialogVisible" title="单词详情" width="600px">
+      </template>
+    </main>
+
+    <!-- 单词详情弹窗 -->
+    <el-dialog v-model="detailDialogVisible" title="单词详情" width="620px" align-center>
       <div v-if="selectedWord" class="word-detail">
-        <div class="detail-header">
-          <h2>{{ selectedWord.word }}</h2>
-          <el-button @click="playWordAudio" type="primary" circle>
-            <el-icon><Microphone /></el-icon>
+        <div class="detail-head">
+          <div>
+            <h2 class="detail-word">{{ selectedWord.word }}</h2>
+            <div class="detail-meta">
+              <span v-if="selectedWord.partOfSpeech" class="pos-chip">{{ selectedWord.partOfSpeech }}</span>
+              <span v-if="selectedWord.phonetic" class="phonetic">{{ selectedWord.phonetic }}</span>
+            </div>
+          </div>
+          <el-button class="sound-btn" circle title="播放发音" @click="playWordAudio">
+            <el-icon :size="18"><Microphone /></el-icon>
           </el-button>
         </div>
-        <div class="detail-phonetic" v-if="selectedWord.phonetic">
-          {{ selectedWord.phonetic }}
-        </div>
-        <div class="detail-definition">
-          <h4>释义:</h4>
+
+        <div class="detail-block">
+          <span class="block-tag">释义</span>
           <p>{{ selectedWord.definition }}</p>
         </div>
-        <div class="detail-ai-definition" v-if="selectedWord.aiDefinition">
-          <h4>AI详细释义:</h4>
+
+        <div v-if="selectedWord.aiDefinition" class="detail-block">
+          <span class="block-tag ai">AI 详细释义</span>
           <p>{{ selectedWord.aiDefinition }}</p>
         </div>
-        <div class="detail-examples" v-if="detailExamples.length > 0">
-          <h4>例句:</h4>
-          <div v-for="(example, index) in detailExamples" :key="index" class="detail-example-item">
-            <p>{{ example.sentence }}</p>
-            <p class="example-translation">{{ example.translation }}</p>
+
+        <div v-if="detailExamples.length > 0" class="detail-block">
+          <span class="block-tag">例句</span>
+          <div v-for="(example, index) in detailExamples" :key="index" class="example-item">
+            <p class="example-en">
+              <span class="example-no">{{ index + 1 }}</span>{{ example.sentence }}
+            </p>
+            <p v-if="example.translation" class="example-tr">{{ example.translation }}</p>
           </div>
         </div>
       </div>
@@ -102,11 +109,14 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import AppHeader from '@/components/AppHeader.vue'
 import { searchWords, getExampleSentences } from '@/api/word'
+import {
+  Search, Loading, ArrowRight, Microphone
+} from '@element-plus/icons-vue'
 
-const router = useRouter()
 const route = useRoute()
 
 const searchKeyword = ref('')
@@ -122,7 +132,7 @@ const handleSearch = async () => {
     ElMessage.warning('请输入搜索关键词')
     return
   }
-  
+
   try {
     loading.value = true
     hasSearched.value = true
@@ -138,8 +148,9 @@ const handleSearch = async () => {
 
 const showWordDetail = async (word) => {
   selectedWord.value = word
+  detailExamples.value = []
   detailDialogVisible.value = true
-  
+
   try {
     const examples = await getExampleSentences(word.id)
     detailExamples.value = examples
@@ -149,6 +160,7 @@ const showWordDetail = async (word) => {
 }
 
 const playWordAudio = () => {
+  speechSynthesis.cancel()
   if (selectedWord.value.audioUrl) {
     const audio = new Audio(selectedWord.value.audioUrl)
     audio.play()
@@ -161,33 +173,30 @@ const playWordAudio = () => {
 
 const getDifficultyType = (level) => {
   const types = {
-    'EASY': 'success',
-    'MEDIUM': 'warning',
-    'HARD': 'danger'
+    EASY: 'success',
+    MEDIUM: 'warning',
+    HARD: 'danger'
   }
   return types[level] || 'info'
 }
 
 const getDifficultyText = (level) => {
   const texts = {
-    'EASY': '简单',
-    'MEDIUM': '中等',
-    'HARD': '困难'
+    EASY: '简单',
+    MEDIUM: '中等',
+    HARD: '困难'
   }
   return texts[level] || level
 }
 
 // 从"我的收藏"、"错词本"点"详情"跳转过来时，地址栏会带上 ?word=xxx 这个参数，
-// 进页面时如果检测到这个参数，自动填进搜索框并直接触发一次搜索，
-// 不用用户自己再手动输入一遍要查的单词
+// 进页面时检测到就自动填词搜索，命中完全匹配的单词时直接打开详情弹窗
 onMounted(async () => {
   const wordFromQuery = route.query.word
   if (wordFromQuery) {
     searchKeyword.value = wordFromQuery
     await handleSearch()
 
-    // 从收藏/错词本跳转过来的，如果搜索结果里正好有跟这个单词完全匹配的，
-    // 直接自动打开详情弹窗，不用用户自己再点一次
     const exactMatch = searchResults.value.find(
       (w) => w.word.toLowerCase() === wordFromQuery.toLowerCase()
     )
@@ -196,164 +205,208 @@ onMounted(async () => {
     }
   }
 })
-
-const goBack = () => {
-  router.push('/')
-}
 </script>
 
 <style scoped>
-.search-container {
-  min-height: 100vh;
+.search-main {
+  max-width: 860px;
 }
 
-.header {
-  background: white;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+/* 搜索框 */
+.search-box {
   display: flex;
   align-items: center;
-  padding: 0 20px;
+  gap: 12px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+.search-box .el-input {
+  flex: 1;
 }
 
-.header-content {
-  width: 100%;
+/* 结果列表 */
+.results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.word-card {
+  padding: 20px 22px;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.word-card:hover {
+  transform: translateY(-2px);
+  border-color: #bfe4cf;
+  box-shadow: var(--shadow-card-hover);
+}
+.word-card-top {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 12px;
 }
-
-.header-content h2 {
+.word-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.word-text {
   margin: 0;
-  color: #333;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--color-ink);
+}
+.phonetic {
+  font-size: 14px;
+  color: var(--color-ink-faint);
+}
+.word-def {
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--color-ink-soft);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.word-card-foot {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+}
+.view-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-primary-deep);
 }
 
-.main-content {
-  padding: 20px;
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-.search-section {
-  margin-bottom: 30px;
-}
-
-.loading-container,
-.empty-container {
+/* 加载 / 空状态 */
+.list-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   min-height: 300px;
-  color: #666;
+  padding: 40px;
+  color: var(--color-ink-soft);
+  text-align: center;
+}
+.list-state h3 {
+  margin: 6px 0 0;
+  font-size: 17px;
+  color: var(--color-ink);
+}
+.list-state p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-ink-faint);
 }
 
-.results-section {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
+/* 详情弹窗 */
+.word-detail {
+  padding: 6px 2px 2px;
 }
-
-.word-result-item {
-  cursor: pointer;
-  transition: transform 0.2s;
-}
-
-.word-result-item:hover {
-  transform: translateX(5px);
-}
-
-.word-result-content {
-  padding: 15px;
-}
-
-.word-result-header {
+.detail-head {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px dashed var(--color-border-strong);
 }
-
-.word-result-text {
+.detail-word {
   margin: 0;
-  font-size: 24px;
-  color: #333;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--color-ink);
 }
-
-.word-result-phonetic {
-  color: #666;
-  font-style: italic;
+.detail-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+.pos-chip {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-primary-deep);
+  background: var(--color-primary-tint);
+  padding: 2px 10px;
+  border-radius: 999px;
+}
+.sound-btn {
+  --el-button-bg-color: var(--color-primary-tint);
+  --el-button-border-color: var(--color-primary-tint);
+  --el-button-text-color: var(--color-primary-deep);
+  --el-button-hover-bg-color: var(--color-primary);
+  --el-button-hover-border-color: var(--color-primary);
+  --el-button-hover-text-color: #fff;
+}
+.detail-block {
+  margin-bottom: 16px;
+}
+.block-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--color-primary-deep);
+  background: var(--color-primary-tint);
+  border-radius: 6px;
+  padding: 2px 8px;
   margin-bottom: 8px;
 }
-
-.word-result-definition {
-  color: #666;
+.block-tag.ai {
+  color: var(--color-blue);
+  background: #e7f1fc;
+}
+.detail-block p {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.7;
+  color: var(--color-ink);
+}
+.example-item {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+.example-en {
+  margin: 0;
+  font-size: 14.5px;
+  color: var(--color-ink);
   line-height: 1.6;
 }
-
-.word-detail {
-  padding: 10px;
-}
-
-.detail-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
-}
-
-.detail-header h2 {
-  margin: 0;
-  font-size: 32px;
-  color: #333;
-}
-
-.detail-phonetic {
-  font-size: 18px;
-  color: #666;
-  font-style: italic;
-  margin-bottom: 15px;
-}
-
-.detail-definition,
-.detail-ai-definition,
-.detail-examples {
-  margin-bottom: 15px;
-}
-
-.detail-definition h4,
-.detail-ai-definition h4,
-.detail-examples h4 {
-  margin: 0 0 8px 0;
-  color: #333;
-}
-
-.detail-definition p,
-.detail-ai-definition p {
-  margin: 0;
-  color: #666;
-  line-height: 1.6;
-}
-
-.detail-ai-definition {
-  background: #f0f9ff;
-  padding: 12px;
-  border-radius: 8px;
-  border-left: 4px solid #409EFF;
-}
-
-.detail-example-item {
-  margin-bottom: 12px;
-  padding: 10px;
-  background: #f9f9f9;
+.example-no {
+  display: inline-block;
+  min-width: 20px;
+  height: 20px;
+  line-height: 20px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--color-blue);
   border-radius: 6px;
+  margin-right: 8px;
 }
-
-.detail-example-item p {
-  margin: 4px 0;
-}
-
-.example-translation {
-  color: #666;
-  font-style: italic;
+.example-tr {
+  margin: 6px 0 0;
+  padding-left: 28px;
+  font-size: 13px;
+  color: var(--color-ink-soft);
 }
 </style>

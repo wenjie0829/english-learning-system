@@ -37,4 +37,14 @@ public interface LearningRecordRepository extends JpaRepository<LearningRecord, 
 
     @Query("SELECT lr FROM LearningRecord lr JOIN FETCH lr.word WHERE lr.user = :user AND lr.nextReviewAt <= :now AND lr.status != 'MASTERED' ORDER BY lr.nextReviewAt ASC")
     List<LearningRecord> findDueReviewsWithWord(@Param("user") User user, @Param("now") LocalDateTime now);
+
+    // ---------- 管理端看板聚合 ----------
+
+    // 每个用户累计学习过的单词总数（含已掌握的）
+    @Query("SELECT lr.user.id, COUNT(lr) FROM LearningRecord lr GROUP BY lr.user.id")
+    List<Object[]> countRecordsGroupByUser();
+
+    // 每个用户处于某种状态的记录数（如已掌握 MASTERED）
+    @Query("SELECT lr.user.id, COUNT(lr) FROM LearningRecord lr WHERE lr.status = :status GROUP BY lr.user.id")
+    List<Object[]> countRecordsGroupByUserAndStatus(@Param("status") LearningRecord.LearningStatus status);
 }

@@ -22,4 +22,8 @@ public interface WordRepository extends JpaRepository<Word, Long> {
 
     @Query("SELECT w FROM Word w WHERE w.word LIKE %:keyword% OR w.definition LIKE %:keyword%")
     List<Word> searchByKeyword(@Param("keyword") String keyword);
+
+    // 词库难度分布（管理端看板饼图用）
+    @Query("SELECT w.difficultyLevel, COUNT(w) FROM Word w GROUP BY w.difficultyLevel")
+    List<Object[]> countGroupByDifficulty();
 }

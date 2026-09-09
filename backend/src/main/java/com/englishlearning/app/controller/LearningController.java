@@ -77,4 +77,9 @@ public class LearningController {
     public ResponseEntity<LearningService.LearningStatistics> getUserStatistics(@PathVariable Long userId) {
         return ResponseEntity.ok(learningService.getUserStatistics(userId));
     }
+
+    @GetMapping("/overview/{userId}")
+    public ResponseEntity<LearningService.DailyOverview> getDailyOverview(@PathVariable Long userId) {
+        return ResponseEntity.ok(learningService.getDailyOverview(userId));
+    }
 }

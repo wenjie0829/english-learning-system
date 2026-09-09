@@ -1,90 +1,81 @@
 <template>
-  <div class="review-container">
-    <el-container>
-      <el-header class="header">
-        <div class="header-content">
-          <el-button @click="goBack" type="primary" plain>
-            <el-icon><ArrowLeft /></el-icon> 返回
-          </el-button>
-          <h2>艾宾浩斯复习</h2>
-          <div class="progress">
-            复习进度: {{ currentIndex + 1 }} / {{ reviewWords.length }}
+  <div class="review-page">
+    <AppHeader mode="simple" title="单词复习" back />
+
+    <main class="flash-shell">
+      <div v-if="loading" class="flash-state card">
+        <el-icon class="is-loading" :size="36"><Loading /></el-icon>
+        <p>正在整理待复习的单词…</p>
+      </div>
+
+      <div v-else-if="reviewWords.length === 0" class="flash-state card">
+        <el-icon :size="44" color="var(--color-moss)"><CircleCheckFilled /></el-icon>
+        <h3>暂时没有待复习的单词</h3>
+        <p>去学几个新词，明天它们就会出现在这里</p>
+        <el-button type="primary" round @click="goLearn">去学习</el-button>
+        <el-button round @click="goBack">返回首页</el-button>
+      </div>
+
+      <template v-else>
+        <!-- 进度 -->
+        <div class="flash-progress">
+          <span class="flash-count">{{ currentIndex + 1 }} / {{ reviewWords.length }}</span>
+          <div class="flash-track">
+            <div class="flash-fill" :style="{ width: progressPct + '%' }"></div>
           </div>
+          <span class="flash-done">还剩 {{ reviewWords.length - currentIndex - 1 }} 个</span>
         </div>
-      </el-header>
-      
-      <el-main class="main-content">
-        <div v-if="loading" class="loading-container">
-          <el-icon class="is-loading" size="48"><Loading /></el-icon>
-          <p>加载中...</p>
-        </div>
-        
-        <div v-else-if="reviewWords.length === 0" class="empty-container">
-          <el-empty description="暂无需要复习的单词">
-            <el-button @click="goBack" type="primary">返回首页</el-button>
-          </el-empty>
-        </div>
-        
-        <div v-else class="review-card">
-          <el-card shadow="hover">
-            <div class="review-content">
-              <div class="review-info">
-                <el-tag type="info">阶段: {{ getStageDescription(currentReviewRecord.ebbinghausStage) }}</el-tag>
-                <el-tag type="warning">复习次数: {{ currentReviewRecord.reviewCount }}</el-tag>
-              </div>
-              
-              <div class="word-header">
-                <h1 class="word-text">{{ currentWord.word }}</h1>
-                <el-button 
-                  @click="playAudio" 
-                  type="primary" 
-                  circle 
-                  size="large"
-                  class="audio-button"
-                >
-                  <el-icon><Microphone /></el-icon>
-                </el-button>
-              </div>
-              
-              <div class="phonetic" v-if="currentWord.phonetic">
-                {{ currentWord.phonetic }}
-              </div>
-              
-              <div class="definition">
-                <h3>释义:</h3>
-                <p>{{ currentWord.definition }}</p>
-              </div>
-              
-              <div class="examples" v-if="exampleSentences.length > 0">
-                <h3>例句:</h3>
-                <div 
-                  v-for="(example, index) in exampleSentences" 
-                  :key="index" 
-                  class="example-item"
-                >
-                  <div class="example-sentence">
-                    <span class="example-number">{{ index + 1 }}.</span>
-                    <span>{{ example.sentence }}</span>
-                  </div>
-                  <div class="example-translation" v-if="example.translation">
-                    {{ example.translation }}
-                  </div>
+
+        <!-- 单词卡 -->
+        <div class="flash-card card">
+          <div class="flash-actions">
+            <el-button circle class="round-btn" title="播放发音" @click="playAudio">
+              <el-icon :size="18"><Microphone /></el-icon>
+            </el-button>
+          </div>
+
+          <div class="word-main">
+            <span class="seen-chip">第 {{ currentReviewRecord.reviewCount }} 轮复习</span>
+            <h1 class="word-text">{{ currentWord.word }}</h1>
+            <div class="word-meta">
+              <span v-if="currentWord.partOfSpeech" class="pos-chip">{{ currentWord.partOfSpeech }}</span>
+              <span v-if="currentWord.phonetic" class="phonetic">{{ currentWord.phonetic }}</span>
+            </div>
+          </div>
+
+          <div class="word-meaning">
+            <div class="meaning-block">
+              <span class="block-tag">释义</span>
+              <p>{{ currentWord.definition }}</p>
+            </div>
+
+            <div v-if="exampleSentences.length > 0" class="examples-block">
+              <span class="block-tag">例句</span>
+              <div v-for="(example, index) in exampleSentences" :key="index" class="example-item">
+                <div class="example-en">
+                  <span class="example-number">{{ index + 1 }}</span>
+                  {{ example.sentence }}
                 </div>
-              </div>
-              
-              <div class="action-buttons">
-                <el-button @click="handleReview(false)" type="danger" size="large">
-                  <el-icon><Close /></el-icon> 不记得
-                </el-button>
-                <el-button @click="handleReview(true)" type="success" size="large">
-                  <el-icon><Check /></el-icon> 记得
-                </el-button>
+                <div v-if="example.translation" class="example-translation">{{ example.translation }}</div>
               </div>
             </div>
-          </el-card>
+          </div>
+
+          <!-- 自评 -->
+          <div class="self-check">
+            <p class="self-check-hint">现在还能想起来这个词的意思吗？</p>
+            <div class="self-check-btns">
+              <el-button class="check-btn no" round size="large" :loading="actionLoading" @click="handleReview(false)">
+                <el-icon :size="18"><Close /></el-icon> 不记得
+              </el-button>
+              <el-button class="check-btn yes" round size="large" :loading="actionLoading" @click="handleReview(true)">
+                <el-icon :size="18"><Check /></el-icon> 记得
+              </el-button>
+            </div>
+          </div>
         </div>
-      </el-main>
-    </el-container>
+      </template>
+    </main>
   </div>
 </template>
 
@@ -93,9 +84,12 @@ import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/store/user'
-import { getDueReviews } from '@/api/learning'
+import AppHeader from '@/components/AppHeader.vue'
+import { getDueReviews, reviewWord } from '@/api/learning'
 import { getExampleSentences } from '@/api/word'
-import { reviewWord } from '@/api/learning'
+import {
+  Microphone, Close, Check, Loading, CircleCheckFilled
+} from '@element-plus/icons-vue'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -104,16 +98,15 @@ const reviewWords = ref([])
 const exampleSentences = ref([])
 const currentIndex = ref(0)
 const loading = ref(true)
+const actionLoading = ref(false)
 
-const currentReviewRecord = computed(() => {
-  return reviewWords.value[currentIndex.value] || {}
+const currentReviewRecord = computed(() => reviewWords.value[currentIndex.value] || {})
+const currentWord = computed(() => currentReviewRecord.value.word || {})
+const progressPct = computed(() => {
+  if (!reviewWords.value.length) return 0
+  return Math.round(((currentIndex.value + 1) / reviewWords.value.length) * 100)
 })
 
-const currentWord = computed(() => {
-  return currentReviewRecord.value.word || {}
-})
-
-// Fisher-Yates 洗牌算法，把数组顺序完全打乱，每次刷新结果都不一样
 const shuffleArray = (arr) => {
   const result = [...arr]
   for (let i = result.length - 1; i > 0; i--) {
@@ -148,31 +141,42 @@ const loadExampleSentences = async (wordId) => {
   }
 }
 
+const speak = (text) => {
+  speechSynthesis.cancel()
+  const utterance = new SpeechSynthesisUtterance(text)
+  utterance.lang = 'en-US'
+  utterance.rate = 0.95
+  speechSynthesis.speak(utterance)
+}
+
 const playAudio = () => {
   if (currentWord.value.audioUrl) {
+    speechSynthesis.cancel()
     const audio = new Audio(currentWord.value.audioUrl)
     audio.play()
   } else {
-    const utterance = new SpeechSynthesisUtterance(currentWord.value.word)
-    utterance.lang = 'en-US'
-    speechSynthesis.speak(utterance)
+    speak(currentWord.value.word)
   }
 }
 
 const handleReview = async (isCorrect) => {
+  if (actionLoading.value) return
+  actionLoading.value = true
   try {
+    // 后端仍会按照记忆曲线安排这个词的下一次出现时间，前端只负责收集对错
     await reviewWord(userStore.user.id, currentWord.value.id, isCorrect)
-    
+
     if (isCorrect) {
       ElMessage.success('记得很棒！')
     } else {
-      ElMessage.warning('已重置学习进度')
+      ElMessage.warning('已记录，稍后会再见到它')
     }
-    
     nextWord()
   } catch (error) {
     ElMessage.error('操作失败')
     console.error('Review error:', error)
+  } finally {
+    actionLoading.value = false
   }
 }
 
@@ -181,172 +185,242 @@ const nextWord = () => {
     currentIndex.value++
     loadExampleSentences(currentWord.value.id)
   } else {
-    ElMessage.success('恭喜！已完成本次复习')
+    ElMessage.success('本轮复习完成，继续保持！')
     router.push('/')
   }
 }
 
-const getStageDescription = (stage) => {
-  const descriptions = ['5分钟', '30分钟', '12小时', '1天', '2天', '4天', '7天', '15天']
-  return descriptions[stage] || '已掌握'
-}
+const goBack = () => router.push('/')
+const goLearn = () => router.push('/learn')
 
-const goBack = () => {
-  router.push('/')
-}
-
-onMounted(() => {
-  loadReviewWords()
-})
+onMounted(loadReviewWords)
 </script>
 
 <style scoped>
-.review-container {
-  min-height: 100vh;
+.flash-shell {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 20px 20px 72px;
 }
 
-.header {
-  background: white;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  display: flex;
-  align-items: center;
-  padding: 0 20px;
-}
-
-.header-content {
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.header-content h2 {
-  margin: 0;
-  color: #333;
-}
-
-.progress {
-  font-size: 16px;
-  color: #666;
-}
-
-.main-content {
-  padding: 20px;
-  display: flex;
-  justify-content: center;
-}
-
-.loading-container,
-.empty-container {
+/* 加载 / 空状态 */
+.flash-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 400px;
-  color: #666;
-}
-
-.review-card {
-  width: 100%;
-  max-width: 800px;
-}
-
-.review-content {
-  padding: 20px;
-}
-
-.review-info {
-  display: flex;
   gap: 10px;
-  margin-bottom: 20px;
+  min-height: 360px;
+  color: var(--color-ink-soft);
+  padding: 32px;
+  text-align: center;
+}
+.flash-state h3 {
+  margin: 6px 0 0;
+  color: var(--color-ink);
+  font-size: 18px;
+}
+.flash-state p {
+  margin: 0 0 10px;
+  font-size: 13px;
 }
 
-.word-header {
+/* 进度 */
+.flash-progress {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.flash-count {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-ink-soft);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.flash-done {
+  font-size: 12px;
+  color: var(--color-ink-faint);
+  white-space: nowrap;
+}
+.flash-track {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-border);
+  overflow: hidden;
+}
+.flash-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2f9ed8, #4a90e2);
+  transition: width 0.35s ease;
 }
 
+/* 单词卡 */
+.flash-card {
+  position: relative;
+  padding: 28px 32px 32px;
+}
+.flash-actions {
+  position: absolute;
+  top: 18px;
+  right: 20px;
+  display: flex;
+  gap: 8px;
+}
+.round-btn {
+  --el-button-bg-color: var(--color-surface-2);
+  --el-button-border-color: var(--color-border);
+  --el-button-text-color: var(--color-ink-soft);
+  --el-button-hover-bg-color: #e7f1fc;
+  --el-button-hover-border-color: var(--color-blue);
+  --el-button-hover-text-color: var(--color-blue);
+}
+
+.word-main {
+  text-align: center;
+  margin: 14px 0 22px;
+}
+.seen-chip {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-blue);
+  background: #e7f1fc;
+  border-radius: 999px;
+  padding: 3px 12px;
+  margin-bottom: 10px;
+}
 .word-text {
   margin: 0;
-  font-size: 48px;
-  color: #333;
+  font-size: clamp(40px, 7vw, 58px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--color-ink);
 }
-
-.audio-button {
-  flex-shrink: 0;
-}
-
-.phonetic {
-  font-size: 20px;
-  color: #666;
-  margin-bottom: 20px;
-  font-style: italic;
-}
-
-.definition {
-  margin-bottom: 20px;
-}
-
-.definition h3 {
-  margin: 0 0 10px 0;
-  color: #333;
-}
-
-.definition p {
-  margin: 0;
-  color: #666;
-  line-height: 1.6;
-}
-
-.examples {
-  margin-bottom: 30px;
-}
-
-.examples h3 {
-  margin: 0 0 15px 0;
-  color: #333;
-}
-
-.example-item {
-  margin-bottom: 15px;
-  padding: 15px;
-  background: #f9f9f9;
-  border-radius: 8px;
-}
-
-.example-sentence {
+.word-meta {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.pos-chip {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-primary-deep);
+  background: var(--color-primary-tint);
+  padding: 2px 10px;
+  border-radius: 999px;
+}
+.phonetic {
+  font-size: 17px;
+  color: var(--color-ink-faint);
+}
+
+/* 释义区 */
+.word-meaning {
+  border-top: 1px dashed var(--color-border-strong);
+  padding-top: 20px;
+}
+.meaning-block {
+  margin-bottom: 14px;
+}
+.block-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--color-primary-deep);
+  background: var(--color-primary-tint);
+  border-radius: 6px;
+  padding: 2px 8px;
   margin-bottom: 8px;
 }
+.meaning-block p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--color-ink);
+}
 
+/* 例句 */
+.examples-block {
+  margin-top: 4px;
+}
+.example-item {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+.example-en {
+  font-size: 14.5px;
+  color: var(--color-ink);
+  line-height: 1.6;
+}
 .example-number {
-  font-weight: bold;
-  color: #409EFF;
+  display: inline-block;
+  min-width: 20px;
+  height: 20px;
+  line-height: 20px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--color-blue);
+  border-radius: 6px;
+  margin-right: 8px;
 }
-
 .example-translation {
-  color: #666;
-  font-style: italic;
-  padding-left: 25px;
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--color-ink-soft);
+  padding-left: 28px;
 }
 
-.action-buttons {
+/* 自评按钮 */
+.self-check {
+  border-top: 1px solid var(--color-border);
+  margin-top: 22px;
+  padding-top: 18px;
+  text-align: center;
+}
+.self-check-hint {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--color-ink-faint);
+}
+.self-check-btns {
   display: flex;
-  gap: 20px;
+  gap: 14px;
   justify-content: center;
-  margin-top: 30px;
 }
-
-.action-buttons .el-button {
+.check-btn {
   flex: 1;
-  max-width: 200px;
+  max-width: 190px;
+  height: 46px;
+  font-weight: 700;
+  font-size: 15px;
 }
-</style>
-
-<style>
-.review-container{min-height:100vh;background:#edf3e4;background-image:radial-gradient(circle at 8% 10%,rgba(194,239,146,.46),transparent 24rem),radial-gradient(circle at 92% 86%,rgba(173,207,145,.43),transparent 28rem)}.review-container .header{height:72px;max-width:1120px;width:calc(100% - 40px);margin:22px auto 0;border-radius:18px;background:#fffdf8;box-shadow:0 8px 22px rgba(22,50,29,.12)}.review-container .header-content h2{font-family:var(--font-display);color:#102318;font-size:28px}.review-container .progress{color:#526b58}.review-container .main-content{width:100%;max-width:1120px;margin:0 auto;padding:30px 20px 72px;display:block}.review-container .review-card{width:min(100%,880px);margin:0 auto}.review-container .el-card{border:1px solid #d5ddcd;border-radius:22px;background:#fffdf8;box-shadow:0 18px 46px rgba(33,71,42,.12)}.review-container .review-content{padding:40px 52px}.review-container .word-text{font-family:var(--font-display);font-size:64px;color:#102318}.review-container .definition{background:#f0f5e8;border-left:5px solid #b8e994}.review-container .action-buttons .el-button{border-radius:999px;height:50px}
+.check-btn.yes {
+  --el-button-bg-color: var(--color-primary);
+  --el-button-border-color: var(--color-primary);
+  --el-button-text-color: #fff;
+  --el-button-hover-bg-color: var(--color-primary-deep);
+  --el-button-hover-border-color: var(--color-primary-deep);
+  box-shadow: 0 8px 18px rgba(23, 160, 92, 0.28);
+}
+.check-btn.no {
+  --el-button-bg-color: #fff;
+  --el-button-border-color: #f0c6bf;
+  --el-button-text-color: var(--color-rust);
+  --el-button-hover-bg-color: #fdecea;
+  --el-button-hover-border-color: var(--color-rust);
+}
 </style>

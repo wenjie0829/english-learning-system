@@ -1,352 +1,451 @@
 <template>
-  <div class="admin-page">
-    <header class="top-bar">
-      <div class="top-bar-inner">
-        <div class="brand" @click="router.push('/')">
-          <div class="brand-mark"><span>词</span></div>
-          <span class="brand-name dict-heading">管理员后台</span>
-        </div>
-        <div class="user-zone">
-          <span class="user-greeting">{{ userStore.user?.username }} · 管理员</span>
-          <button class="ghost-btn" @click="router.push('/')">返回主页</button>
+  <div class="admin-layout">
+    <!-- ============ 左侧导航 ============ -->
+    <aside class="admin-side">
+      <div class="side-brand">
+        <div class="side-logo">词</div>
+        <div class="side-brand-text">
+          <strong>自在背单词</strong>
+          <span>管理后台</span>
         </div>
       </div>
-    </header>
 
-    <main class="main-content">
-      <!-- 统计条 -->
-      <section class="stat-row">
-        <div class="mini-stat">
-          <span class="mini-stat-label">总用户数</span>
-          <span class="mini-stat-value">{{ stats.totalUsers ?? '—' }}</span>
-        </div>
-        <div class="mini-stat">
-          <span class="mini-stat-label">管理员</span>
-          <span class="mini-stat-value" style="color: var(--color-primary)">{{ stats.adminCount ?? '—' }}</span>
-        </div>
-        <div class="mini-stat">
-          <span class="mini-stat-label">已封禁</span>
-          <span class="mini-stat-value" style="color: var(--color-rust)">{{ stats.disabledCount ?? '—' }}</span>
-        </div>
-        <div class="mini-stat">
-          <span class="mini-stat-label">总单词数</span>
-          <span class="mini-stat-value" style="color: var(--color-moss)">{{ stats.totalWords ?? '—' }}</span>
-        </div>
-        <div class="mini-stat">
-          <span class="mini-stat-label">总例句数</span>
-          <span class="mini-stat-value" style="color: var(--color-amber)">{{ stats.totalExampleSentences ?? '—' }}</span>
-        </div>
-      </section>
-
-      <!-- Tab 切换 -->
-      <div class="tab-strip">
+      <nav class="side-nav">
         <button
-          class="tab-btn"
-          :class="{ active: activeTab === 'users' }"
-          @click="activeTab = 'users'"
-        >用户管理</button>
-        <button
-          class="tab-btn"
-          :class="{ active: activeTab === 'words' }"
-          @click="activeTab = 'words'"
-        >单词库管理</button>
-        <button
-          class="tab-btn"
-          :class="{ active: activeTab === 'import' }"
-          @click="activeTab = 'import'"
-        >单词书导入</button>
-      </div>
-
-      <!-- ============ 用户管理 ============ -->
-      <section v-if="activeTab === 'users'" class="panel">
-        <el-table :data="users" v-loading="usersLoading" style="width: 100%">
-          <el-table-column prop="id" label="ID" width="70" />
-          <el-table-column prop="username" label="用户名" width="160" />
-          <el-table-column prop="email" label="邮箱" min-width="180">
-            <template #default="{ row }">{{ row.email || '—' }}</template>
-          </el-table-column>
-          <el-table-column label="角色" width="160">
-            <template #default="{ row }">
-              <el-select
-                v-model="row.role"
-                size="small"
-                style="width: 120px"
-                @change="(val) => onRoleChange(row, val)"
-              >
-                <el-option label="学生 STUDENT" value="STUDENT" />
-                <el-option label="管理员 ADMIN" value="ADMIN" />
-              </el-select>
-            </template>
-          </el-table-column>
-          <el-table-column label="状态" width="110">
-            <template #default="{ row }">
-              <span class="status-pill" :class="row.enabled ? 'ok' : 'banned'">
-                {{ row.enabled ? '正常' : '已封禁' }}
-              </span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="createdAt" label="注册时间" width="180">
-            <template #default="{ row }">{{ formatDate(row.createdAt) }}</template>
-          </el-table-column>
-          <el-table-column label="操作" width="200" fixed="right">
-            <template #default="{ row }">
-              <el-button
-                size="small"
-                :type="row.enabled ? 'warning' : 'success'"
-                text
-                @click="onToggleStatus(row)"
-              >{{ row.enabled ? '封禁' : '解封' }}</el-button>
-              <el-button size="small" type="danger" text @click="onDeleteUser(row)">删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </section>
-
-      <!-- ============ 单词库管理 ============ -->
-      <section v-if="activeTab === 'words'" class="panel">
-        <div class="panel-toolbar">
-          <el-input
-            v-model="wordSearchKeyword"
-            placeholder="按单词/释义搜索"
-            style="width: 240px"
-            clearable
-          />
-          <div class="toolbar-actions">
-            <span v-if="generatingExamples" class="progress-hint">
-              正在生成例句 {{ generatingProgress.done }}/{{ generatingProgress.total }}…
-            </span>
-            <button
-              class="primary-btn small ghost"
-              :disabled="!selectedWordIds.length || generatingExamples"
-              @click="onGenerateExamples"
-            >
-              {{ generatingExamples ? '生成中…' : `AI 批量生成例句${selectedWordIds.length ? '（' + selectedWordIds.length + '）' : ''}` }}
-            </button>
-            <button
-              class="primary-btn small danger"
-              :disabled="!selectedWordIds.length || generatingExamples"
-              @click="onBatchDeleteWords"
-            >
-              批量删除{{ selectedWordIds.length ? '（' + selectedWordIds.length + '）' : '' }}
-            </button>
-            <button class="primary-btn small" :disabled="generatingExamples" @click="openWordDialog(null)">+ 新增单词</button>
-          </div>
-        </div>
-        <p class="import-hint">
-          勾选下面的单词，点"AI 批量生成例句"，会给<strong>还没有例句的单词</strong>各生成 3 条地道例句+翻译（每 5 个一批，逐批处理，避免一次性请求太多导致超时）；
-          已经有例句的单词会自动跳过，不会重复叠加。也可以勾选后点"批量删除"一次性清理掉一批单词。
-        </p>
-
-        <el-table
-          :data="filteredWords"
-          v-loading="wordsLoading"
-          style="width: 100%"
-          @selection-change="onWordSelectionChange"
+          class="side-item"
+          :class="{ active: active === 'dashboard' }"
+          @click="active = 'dashboard'"
         >
-          <el-table-column type="selection" width="45" />
-          <el-table-column prop="id" label="ID" width="70" />
-          <el-table-column prop="word" label="单词" width="140" />
-          <el-table-column prop="phonetic" label="音标" width="120">
-            <template #default="{ row }">{{ row.phonetic || '—' }}</template>
-          </el-table-column>
-          <el-table-column prop="definition" label="释义" min-width="200" show-overflow-tooltip />
-          <el-table-column prop="difficultyLevel" label="难度" width="100">
-            <template #default="{ row }">
-              <span class="status-pill" :class="difficultyClass(row.difficultyLevel)">
-                {{ difficultyLabel(row.difficultyLevel) }}
-              </span>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="230" fixed="right">
-            <template #default="{ row }">
-              <el-button size="small" type="primary" text @click="openWordDialog(row)">编辑</el-button>
-              <el-button size="small" text @click="openExampleDialog(row)">例句</el-button>
-              <el-button size="small" type="danger" text @click="onDeleteWord(row)">删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </section>
+          <el-icon :size="17"><DataAnalysis /></el-icon>
+          <span>数据看板</span>
+        </button>
+        <button
+          class="side-item"
+          :class="{ active: active === 'users' }"
+          @click="openUsers"
+        >
+          <el-icon :size="17"><User /></el-icon>
+          <span>用户管理</span>
+        </button>
+        <button
+          class="side-item"
+          :class="{ active: active === 'announcements' }"
+          @click="openAnnouncements"
+        >
+          <el-icon :size="17"><Bell /></el-icon>
+          <span>系统公告</span>
+        </button>
+      </nav>
 
-      <!-- ============ 单词书导入 ============ -->
-      <section v-if="activeTab === 'import'" class="panel">
-        <div class="import-mode-switch">
-          <button
-            class="mode-btn"
-            :class="{ active: importMode === 'file' }"
-            @click="importMode = 'file'"
-          >上传文件</button>
-          <button
-            class="mode-btn"
-            :class="{ active: importMode === 'text' }"
-            @click="importMode = 'text'"
-          >粘贴文本</button>
+      <div class="side-foot">
+        <span class="foot-chip">管理员 {{ adminCount }} 人</span>
+        <span class="foot-chip" :class="{ danger: disabledCount > 0 }">封禁 {{ disabledCount }} 人</span>
+      </div>
+    </aside>
+
+    <!-- ============ 右侧主体 ============ -->
+    <div class="admin-body">
+      <header class="admin-top">
+        <h2>{{ pageTitle }}</h2>
+        <div class="top-actions">
+          <router-link to="/" class="back-home">
+            <el-icon><HomeFilled /></el-icon>
+            <span>返回学习端</span>
+          </router-link>
+          <div class="top-user">
+            <span class="top-avatar">{{ avatarText }}</span>
+            <span class="top-name">{{ userStore.user?.username }}</span>
+            <el-tag size="small" effect="dark" round>管理员</el-tag>
+          </div>
+          <button class="logout-btn" title="退出登录" @click="handleLogout">
+            <el-icon :size="17"><SwitchButton /></el-icon>
+          </button>
         </div>
+      </header>
 
-        <div class="ai-toggle">
-          <el-switch v-model="useAi" />
-          <span class="ai-toggle-label">
-            使用 AI 智能解析
-            <span class="ai-toggle-hint">（排版再乱也能读懂，但更慢，且需要已配置 DeepSeek API Key；不开则用免费的规则匹配，速度快但对排版要求较高）</span>
-          </span>
-        </div>
-
-        <div v-if="importMode === 'file'" class="import-upload">
-          <el-upload
-            drag
-            :auto-upload="false"
-            :show-file-list="false"
-            accept=".pdf,.txt,.docx"
-            @change="onImportFileChange"
-          >
-            <div class="upload-inner">
-              <el-icon :size="32" style="color: var(--color-ink-soft)"><UploadFilled /></el-icon>
-              <p>{{ importFile ? importFile.name : '点击或拖拽单词书文件到这里（支持 PDF / TXT / Word）' }}</p>
+      <main class="admin-content">
+        <!-- ==================== 数据看板 ==================== -->
+        <section v-if="active === 'dashboard'" class="dash-view" v-loading="dashLoading">
+          <template v-if="dash">
+            <!-- KPI 卡片 -->
+            <div class="kpi-grid">
+              <div class="kpi-card card">
+                <div class="kpi-icon blue"><el-icon :size="19"><User /></el-icon></div>
+                <div class="kpi-info">
+                  <span class="kpi-label">注册用户</span>
+                  <span class="kpi-value">{{ dash.totals.totalUsers }}</span>
+                </div>
+              </div>
+              <div class="kpi-card card">
+                <div class="kpi-icon green"><el-icon :size="19"><Reading /></el-icon></div>
+                <div class="kpi-info">
+                  <span class="kpi-label">学生用户</span>
+                  <span class="kpi-value">{{ dash.totals.studentCount }}</span>
+                </div>
+              </div>
+              <div class="kpi-card card">
+                <div class="kpi-icon amber"><el-icon :size="19"><Collection /></el-icon></div>
+                <div class="kpi-info">
+                  <span class="kpi-label">词库单词</span>
+                  <span class="kpi-value">{{ dash.totals.totalWords }}</span>
+                </div>
+              </div>
+              <div class="kpi-card card">
+                <div class="kpi-icon moss"><el-icon :size="19"><CircleCheckFilled /></el-icon></div>
+                <div class="kpi-info">
+                  <span class="kpi-label">今日打卡</span>
+                  <span class="kpi-value">{{ dash.today.checkIns }}</span>
+                  <span class="kpi-sub">活跃用户 {{ dash.today.activeUsers }}</span>
+                </div>
+              </div>
+              <div class="kpi-card card">
+                <div class="kpi-icon green"><el-icon :size="19"><TrendCharts /></el-icon></div>
+                <div class="kpi-info">
+                  <span class="kpi-label">今日新学</span>
+                  <span class="kpi-value">{{ dash.today.learned }}</span>
+                  <span class="kpi-sub">单词次</span>
+                </div>
+              </div>
+              <div class="kpi-card card">
+                <div class="kpi-icon blue"><el-icon :size="19"><Refresh /></el-icon></div>
+                <div class="kpi-info">
+                  <span class="kpi-label">今日复习</span>
+                  <span class="kpi-value">{{ dash.today.reviewed }}</span>
+                  <span class="kpi-sub">单词次</span>
+                </div>
+              </div>
             </div>
-          </el-upload>
-          <button class="primary-btn small" :disabled="!importFile || parsing" @click="parseImportFile">
-            {{ parsing ? '解析中…' : '解析文件' }}
-          </button>
-        </div>
 
-        <div v-else class="import-paste">
-          <el-input
-            v-model="pasteText"
-            type="textarea"
-            :rows="8"
-            placeholder="把单词表文字粘贴到这里，每行一个单词，例如：&#10;abandon /əˈbændən/ v. 放弃；抛弃&#10;ability n. 能力"
-          />
-          <button class="primary-btn small" :disabled="!pasteText.trim() || parsing" @click="parsePastedText">
-            {{ parsing ? '解析中…' : '解析文本' }}
-          </button>
-        </div>
+            <!-- 图表区 -->
+            <div class="chart-grid">
+              <div class="chart-card card span-2">
+                <div class="chart-head">
+                  <h3>近 14 天学习活跃度</h3>
+                  <span class="chart-sub">每日新学 / 复习词次 与 活跃用户数</span>
+                </div>
+                <BaseChart :option="activityOpt" height="300px" />
+              </div>
 
-        <p class="import-hint">
-          支持 PDF、TXT 纯文本、Word（.docx）三种文件格式，也可以直接粘贴文本。解析结果仅供参考（排版千差万别，可能有漏识别或识别错误），
-          请在下方核对/编辑后再确认导入。已存在于词库的单词默认不勾选，避免重复。
-          <span v-if="useAi">开启了 AI 智能解析：如果原文里有配套例句，会一并提取，确认导入时自动写入。</span>
-          <span v-else>规则匹配模式不提取例句（只有单词本身）；如果需要连例句一起导入，请打开上面的"使用 AI 智能解析"开关。</span>
-          <br />
-          <strong>小贴士</strong>：如果上传文件解析效果不好（比如原始材料排版比较复杂），可以先自己在别处把文字整理成"一行一个单词"的样子，再用"粘贴文本"这个方式导入，成功率会高很多。
-        </p>
+              <div class="chart-card card">
+                <div class="chart-head">
+                  <h3>词库难度分布</h3>
+                  <span class="chart-sub">共 {{ dash.totals.totalWords }} 个单词</span>
+                </div>
+                <BaseChart :option="difficultyOpt" height="260px" />
+              </div>
 
-        <div v-if="importItems.length" class="import-result">
-          <div v-if="aiMeta && aiMeta.truncated" class="ai-truncated-hint">
-            ⚠️ 文档内容较多，本次只处理了前 {{ aiMeta.processedChunks }} / {{ aiMeta.totalChunks }} 段。
-            如果需要处理完整文档，建议把文件拆小一点分批导入。
+              <div class="chart-card card span-2">
+                <div class="chart-head">
+                  <h3>近 14 天新增注册</h3>
+                  <span class="chart-sub">每日新注册用户数</span>
+                </div>
+                <BaseChart :option="growthOpt" height="240px" />
+              </div>
+
+              <div class="chart-card card">
+                <div class="chart-head">
+                  <h3>学习榜 TOP 8</h3>
+                  <span class="chart-sub">按累计学习单词数排序</span>
+                </div>
+                <div v-if="dash.topUsers.length" class="rank-list">
+                  <div v-for="(u, i) in dash.topUsers" :key="u.id" class="rank-row">
+                    <span class="rank-no" :class="'r' + (i + 1)">{{ i + 1 }}</span>
+                    <span class="rank-avatar">{{ (u.username || 'U').charAt(0).toUpperCase() }}</span>
+                    <div class="rank-main">
+                      <span class="rank-name">{{ u.username }}</span>
+                      <div class="rank-bar">
+                        <div
+                          class="rank-fill"
+                          :style="{ width: rankPct(u) + '%' }"
+                        ></div>
+                      </div>
+                    </div>
+                    <div class="rank-nums">
+                      <strong>{{ u.mastered }}</strong><em>/ {{ u.totalLearned }} 掌握</em>
+                    </div>
+                  </div>
+                </div>
+                <el-empty v-else description="暂无学习数据" :image-size="70" />
+              </div>
+            </div>
+          </template>
+        </section>
+
+        <!-- ==================== 用户管理 ==================== -->
+        <section v-else-if="active === 'users'" class="panel-view card">
+          <div class="panel-head">
+            <div>
+              <h3>学生用户管理</h3>
+              <p class="panel-sub">共 {{ users.length }} 位用户，点「详情」查看任意学生的学习情况</p>
+            </div>
           </div>
-          <div v-if="aiMeta && aiMeta.failedChunks > 0" class="ai-truncated-hint">
-            ⚠️ 有 {{ aiMeta.failedChunks }} 段调用 AI 解析时失败（可能是网络问题或触发了限流），这部分内容没有被解析。
-          </div>
-          <div class="import-toolbar">
-            <span>共解析出 {{ importItems.length }} 条，已选中 {{ selectedImportCount }} 条</span>
-            <button class="primary-btn small" :disabled="importing || !selectedImportCount" @click="confirmImportSelected">
-              {{ importing ? '导入中…' : '确认导入选中项' }}
-            </button>
-          </div>
-
-          <el-table :data="importItems" max-height="420" style="width: 100%">
-            <el-table-column width="50">
+          <el-table :data="users" v-loading="usersLoading" style="width: 100%">
+            <el-table-column prop="id" label="ID" width="70" />
+            <el-table-column label="用户名" min-width="140">
               <template #default="{ row }">
-                <el-checkbox v-model="row.selected" />
+                <span class="user-cell">
+                  <span class="cell-avatar">{{ (row.username || 'U').charAt(0).toUpperCase() }}</span>
+                  {{ row.username }}
+                </span>
               </template>
             </el-table-column>
-            <el-table-column label="单词" width="140">
-              <template #default="{ row }"><el-input v-model="row.word" size="small" /></template>
+            <el-table-column label="邮箱" min-width="170">
+              <template #default="{ row }">{{ row.email || '—' }}</template>
             </el-table-column>
-            <el-table-column label="音标" width="130">
-              <template #default="{ row }"><el-input v-model="row.phonetic" size="small" /></template>
-            </el-table-column>
-            <el-table-column label="词性" width="90">
-              <template #default="{ row }"><el-input v-model="row.partOfSpeech" size="small" /></template>
-            </el-table-column>
-            <el-table-column label="释义" min-width="200">
-              <template #default="{ row }"><el-input v-model="row.definition" size="small" /></template>
-            </el-table-column>
-            <el-table-column label="例句" width="80">
+            <el-table-column label="角色" width="130">
               <template #default="{ row }">
-                <span v-if="row.examples && row.examples.length" class="status-pill ok">
-                  {{ row.examples.length }} 条
-                </span>
-                <span v-else style="color: var(--color-border)">—</span>
+                <el-select
+                  v-model="row.role"
+                  size="small"
+                  style="width: 100px"
+                  @change="(val) => onRoleChange(row, val)"
+                >
+                  <el-option label="学生" value="STUDENT" />
+                  <el-option label="管理员" value="ADMIN" />
+                </el-select>
               </template>
             </el-table-column>
             <el-table-column label="状态" width="90">
               <template #default="{ row }">
-                <span class="status-pill" :class="row.alreadyExists ? 'warn' : 'ok'">
-                  {{ row.alreadyExists ? '已存在' : '新单词' }}
+                <span class="status-dot" :class="row.enabled ? 'ok' : 'off'">
+                  {{ row.enabled ? '正常' : '封禁' }}
                 </span>
               </template>
             </el-table-column>
+            <el-table-column label="注册时间" width="160">
+              <template #default="{ row }">{{ fmtDateTime(row.createdAt) }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="220" fixed="right">
+              <template #default="{ row }">
+                <el-button size="small" type="primary" text @click="openUserDetail(row)">详情</el-button>
+                <el-button
+                  size="small"
+                  :type="row.enabled ? 'warning' : 'success'"
+                  text
+                  @click="onToggleStatus(row)"
+                >{{ row.enabled ? '封禁' : '解封' }}</el-button>
+                <el-button size="small" type="danger" text @click="onDeleteUser(row)">删除</el-button>
+              </template>
+            </el-table-column>
           </el-table>
-        </div>
-      </section>
-    </main>
+        </section>
 
-    <!-- 新增/编辑单词弹窗 -->
-    <el-dialog v-model="wordDialogVisible" :title="editingWord ? '编辑单词' : '新增单词'" width="480px">
-      <el-form :model="wordForm" label-position="top">
-        <el-form-item label="单词" required>
-          <el-input v-model="wordForm.word" placeholder="例如 abandon" />
-        </el-form-item>
-        <el-form-item label="音标">
-          <el-input v-model="wordForm.phonetic" placeholder="例如 /əˈbændən/" />
-        </el-form-item>
-        <el-form-item label="中文释义" required>
-          <el-input v-model="wordForm.definition" type="textarea" :rows="2" />
-        </el-form-item>
-        <el-form-item label="AI 详细释义（选填）">
-          <el-input v-model="wordForm.aiDefinition" type="textarea" :rows="2" />
-        </el-form-item>
-        <el-form-item label="词性">
-          <el-input v-model="wordForm.partOfSpeech" placeholder="例如 v. / n. / adj." style="width: 160px" />
-        </el-form-item>
-        <el-form-item label="难度等级">
-          <el-select v-model="wordForm.difficultyLevel" style="width: 160px">
-            <el-option label="简单" value="EASY" />
-            <el-option label="中等" value="MEDIUM" />
-            <el-option label="困难" value="HARD" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="发音音频 URL（选填）">
-          <el-input v-model="wordForm.audioUrl" placeholder="https://..." />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <button class="ghost-btn" @click="wordDialogVisible = false">取消</button>
-        <button class="primary-btn small" @click="saveWord" :disabled="wordSaving">
-          {{ wordSaving ? '保存中…' : '保存' }}
-        </button>
-      </template>
-    </el-dialog>
-
-    <!-- 例句管理弹窗 -->
-    <el-dialog v-model="exampleDialogVisible" :title="`例句管理 · ${exampleTargetWord?.word || ''}`" width="560px">
-      <div class="example-list">
-        <div v-if="!examples.length" class="empty-hint">还没有例句，在下面添加一条吧</div>
-        <div v-for="ex in examples" :key="ex.id" class="example-item">
-          <div class="example-text">
-            <p class="en">{{ ex.sentence }}</p>
-            <p v-if="ex.translation" class="zh">{{ ex.translation }}</p>
+        <!-- ==================== 系统公告 ==================== -->
+        <section v-else class="panel-view card">
+          <div class="panel-head">
+            <div>
+              <h3>系统公告管理</h3>
+              <p class="panel-sub">发布的公告会展示在用户端首页顶部横幅</p>
+            </div>
+            <el-button type="primary" round @click="openAnnouncementDialog(null)">
+              <el-icon><Plus /></el-icon> 新建公告
+            </el-button>
           </div>
-          <el-button size="small" type="danger" text @click="onDeleteExample(ex)">删除</el-button>
-        </div>
-      </div>
 
-      <el-form :model="exampleForm" label-position="top" class="example-form">
-        <el-form-item label="英文例句">
-          <el-input v-model="exampleForm.sentence" type="textarea" :rows="2" />
+          <el-table :data="announcements" v-loading="annLoading" style="width: 100%">
+            <el-table-column prop="id" label="ID" width="70" />
+            <el-table-column prop="title" label="标题" min-width="160">
+              <template #default="{ row }">
+                <span class="ann-title">{{ row.title }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="内容" min-width="260" show-overflow-tooltip>
+              <template #default="{ row }">{{ row.content || '—' }}</template>
+            </el-table-column>
+            <el-table-column label="发布状态" width="110">
+              <template #default="{ row }">
+                <el-switch
+                  :model-value="!!row.enabled"
+                  inline-prompt
+                  active-text="已发布"
+                  inactive-text="已下线"
+                  @change="(val) => onToggleAnnouncement(row, val)"
+                />
+              </template>
+            </el-table-column>
+            <el-table-column label="更新时间" width="160">
+              <template #default="{ row }">{{ fmtDateTime(row.updatedAt) }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="150" fixed="right">
+              <template #default="{ row }">
+                <el-button size="small" text @click="openAnnouncementDialog(row)">编辑</el-button>
+                <el-button size="small" type="danger" text @click="onDeleteAnnouncement(row)">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </section>
+      </main>
+    </div>
+
+    <!-- ============ 公告编辑弹窗 ============ -->
+    <el-dialog
+      v-model="annDialogVisible"
+      :title="annForm.id ? '编辑公告' : '新建公告'"
+      width="560px"
+      align-center
+    >
+      <el-form :model="annForm" label-position="top">
+        <el-form-item label="公告标题" required>
+          <el-input v-model="annForm.title" maxlength="60" show-word-limit placeholder="例如：四六级词汇书已更新" />
         </el-form-item>
-        <el-form-item label="中文翻译（选填）">
-          <el-input v-model="exampleForm.translation" type="textarea" :rows="2" />
+        <el-form-item label="公告内容">
+          <el-input
+            v-model="annForm.content"
+            type="textarea"
+            :rows="6"
+            maxlength="500"
+            show-word-limit
+            placeholder="写点想告诉同学们的内容…"
+          />
+        </el-form-item>
+        <el-form-item label="发布状态">
+          <el-switch v-model="annForm.enabled" inline-prompt active-text="立即发布" inactive-text="暂不发布" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <button class="ghost-btn" @click="exampleDialogVisible = false">关闭</button>
-        <button class="primary-btn small" @click="addExample" :disabled="exampleSaving">
-          {{ exampleSaving ? '添加中…' : '添加例句' }}
-        </button>
+        <el-button round @click="annDialogVisible = false">取消</el-button>
+        <el-button type="primary" round :loading="annSaving" @click="saveAnnouncement">
+          {{ annForm.id ? '保存修改' : '创建公告' }}
+        </el-button>
       </template>
     </el-dialog>
+
+    <!-- ============ 用户学习详情抽屉 ============ -->
+    <el-drawer
+      v-model="detailVisible"
+      :title="detail ? detail.user.username + ' 的学习详情' : '用户学习详情'"
+      size="640px"
+      :with-header="true"
+      class="detail-drawer"
+    >
+      <div v-if="detail" v-loading="detailLoading" class="drawer-body">
+        <!-- 基本信息 -->
+        <div class="user-hero">
+          <div class="hero-avatar">{{ (detail.user.username || 'U').charAt(0).toUpperCase() }}</div>
+          <div class="hero-main">
+            <div class="hero-name">
+              {{ detail.user.username }}
+              <el-tag
+                size="small"
+                effect="light"
+                round
+                :type="detail.user.role === 'ADMIN' ? 'warning' : 'success'"
+              >{{ detail.user.role === 'ADMIN' ? '管理员' : '学生' }}</el-tag>
+              <el-tag
+                v-if="!detail.user.enabled"
+                size="small"
+                effect="dark"
+                round
+                type="danger"
+              >已封禁</el-tag>
+            </div>
+            <div class="hero-meta">
+              <span v-if="detail.user.email">{{ detail.user.email }}</span>
+              <span v-else>未填写邮箱</span>
+              <span class="dot">·</span>
+              <span>注册于 {{ fmtDate(detail.user.createdAt) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 概览指标 -->
+        <div class="sum-grid">
+          <div class="sum-item">
+            <span class="sum-value">{{ detail.summary.totalRecords }}</span>
+            <span class="sum-label">累计学习</span>
+          </div>
+          <div class="sum-item">
+            <span class="sum-value moss">{{ detail.summary.mastered }}</span>
+            <span class="sum-label">已掌握</span>
+          </div>
+          <div class="sum-item">
+            <span class="sum-value amber">{{ detail.summary.learning }}</span>
+            <span class="sum-label">学习中</span>
+          </div>
+          <div class="sum-item">
+            <span class="sum-value blue">{{ detail.summary.dueReviews }}</span>
+            <span class="sum-label">待复习</span>
+          </div>
+          <div class="sum-item">
+            <span class="sum-value">{{ detail.summary.favoriteCount }}</span>
+            <span class="sum-label">收藏</span>
+          </div>
+          <div class="sum-item">
+            <span class="sum-value rust">{{ detail.summary.wrongCount }}</span>
+            <span class="sum-label">错词</span>
+          </div>
+        </div>
+
+        <!-- 掌握率进度 -->
+        <div class="mastery-bar">
+          <div class="mastery-head">
+            <span>单词掌握率</span>
+            <strong>{{ masteryPct }}%</strong>
+          </div>
+          <el-progress
+            :percentage="masteryPct"
+            :show-text="false"
+            :stroke-width="10"
+            :color="masteryColor"
+          />
+        </div>
+
+        <!-- 明细切换 -->
+        <el-tabs v-model="detailTab" class="detail-tabs">
+          <el-tab-pane :label="`学习记录 (${detail.records.length})`" name="records">
+            <div v-if="detail.records.length" class="mini-list">
+              <div v-for="r in detail.records" :key="r.id" class="mini-row">
+                <div class="mini-word">
+                  <strong>{{ r.word ? r.word.word : '—' }}</strong>
+                  <span class="mini-phonetic" v-if="r.word?.phonetic">{{ r.word.phonetic }}</span>
+                  <span
+                    class="mini-status"
+                    :class="statusClass(r.status)"
+                  >{{ statusLabel(r.status) }}</span>
+                </div>
+                <div class="mini-sub">
+                  已复习 {{ r.reviewCount }} 轮 · 对 {{ r.correctCount }} 错 {{ r.wrongCount }}
+                  <template v-if="r.nextReviewAt">
+                    · 下次复习 {{ fmtDateTime(r.nextReviewAt) }}
+                  </template>
+                </div>
+              </div>
+            </div>
+            <el-empty v-else description="暂无学习记录" :image-size="70" />
+          </el-tab-pane>
+
+          <el-tab-pane :label="`错词 (${detail.wrongWords.length})`" name="wrongs">
+            <div v-if="detail.wrongWords.length" class="mini-list">
+              <div v-for="w in detail.wrongWords" :key="w.id" class="mini-row">
+                <div class="mini-word">
+                  <strong>{{ w.word ? w.word.word : '—' }}</strong>
+                  <span class="mini-phonetic" v-if="w.word?.phonetic">{{ w.word.phonetic }}</span>
+                  <span class="mini-status rust">错 {{ w.wrongCount }} 次</span>
+                </div>
+                <div class="mini-sub" v-if="w.word?.definition">{{ w.word.definition }}</div>
+              </div>
+            </div>
+            <el-empty v-else description="暂无错词" :image-size="70" />
+          </el-tab-pane>
+
+          <el-tab-pane :label="`收藏 (${detail.favorites.length})`" name="favorites">
+            <div v-if="detail.favorites.length" class="mini-list">
+              <div v-for="f in detail.favorites" :key="f.id" class="mini-row">
+                <div class="mini-word">
+                  <strong>{{ f.word ? f.word.word : '—' }}</strong>
+                  <span class="mini-phonetic" v-if="f.word?.phonetic">{{ f.word.phonetic }}</span>
+                </div>
+                <div class="mini-sub">
+                  <span v-if="f.word?.definition">{{ f.word.definition }}</span>
+                  <span class="fav-time">{{ fmtDate(f.createdAt) }} 收藏</span>
+                </div>
+              </div>
+            </div>
+            <el-empty v-else description="暂无收藏" :image-size="70" />
+          </el-tab-pane>
+        </el-tabs>
+      </div>
+    </el-drawer>
   </div>
 </template>
 
@@ -355,44 +454,218 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/store/user'
+import BaseChart from '@/components/BaseChart.vue'
 import {
-  getSystemStatistics,
+  getAdminDashboard,
   getAllUsers,
   updateUserRole,
   updateUserStatus,
   deleteUser,
-  getAdminWords,
-  createWord as apiCreateWord,
-  updateWord as apiUpdateWord,
-  deleteWord as apiDeleteWord,
-  getExampleSentences,
-  addExampleSentence,
-  deleteExampleSentence,
-  parsePdfImport,
-  confirmPdfImport,
-  parseTextImport,
-  parseAiFileImport,
-  parseAiTextImport,
-  generateExamplesForWords,
-  batchDeleteWords
+  getAdminUserDetail,
+  getAdminAnnouncements,
+  createAdminAnnouncement,
+  updateAdminAnnouncement,
+  deleteAdminAnnouncement
 } from '@/api/admin'
+import {
+  DataAnalysis, User, Bell, Reading, Collection, Refresh, TrendCharts,
+  CircleCheckFilled, HomeFilled, SwitchButton, Plus
+} from '@element-plus/icons-vue'
 
 const router = useRouter()
 const userStore = useUserStore()
 
-const activeTab = ref('users')
-const stats = ref({})
+const active = ref('dashboard')
 
-// ---------- 用户管理 ----------
+const pageTitle = computed(() => ({
+  dashboard: '数据看板',
+  users: '用户管理',
+  announcements: '系统公告'
+}[active.value]))
+
+const avatarText = computed(() => {
+  const name = userStore.user?.username || 'U'
+  return name.charAt(0).toUpperCase()
+})
+
+const handleLogout = () => {
+  userStore.logout()
+  router.push('/login')
+}
+
+const fmtDateTime = (s) => (s ? String(s).replace('T', ' ').slice(0, 16) : '—')
+const fmtDate = (s) => (s ? String(s).slice(0, 10) : '—')
+
+// ==================== 数据看板 ====================
+const dash = ref(null)
+const dashLoading = ref(false)
+
+const loadDashboard = async () => {
+  dashLoading.value = true
+  try {
+    dash.value = await getAdminDashboard()
+  } catch (e) {
+    console.error(e)
+    ElMessage.error('看板数据加载失败')
+  } finally {
+    dashLoading.value = false
+  }
+}
+
+const adminCount = computed(() => dash.value?.totals?.adminCount ?? 0)
+const disabledCount = computed(() => dash.value?.totals?.disabledCount ?? 0)
+
+const PALETTE = { green: '#17a05c', blue: '#4a90e2', amber: '#e6a23c', rust: '#e05d4a' }
+
+const activityOpt = computed(() => {
+  const act = dash.value?.activity14 || []
+  return {
+    tooltip: { trigger: 'axis' },
+    legend: {
+      top: 0,
+      icon: 'circle',
+      itemWidth: 8,
+      itemHeight: 8,
+      textStyle: { color: '#5f6f66', fontSize: 12 }
+    },
+    grid: { left: 8, right: 8, top: 36, bottom: 0, containLabel: true },
+    xAxis: {
+      type: 'category',
+      data: act.map((d) => d.date),
+      axisTick: { show: false },
+      axisLine: { lineStyle: { color: '#e3e9e4' } },
+      axisLabel: { color: '#93a098', fontSize: 11, interval: 1 }
+    },
+    yAxis: [
+      {
+        type: 'value',
+        name: '词次',
+        nameTextStyle: { color: '#93a098' },
+        splitLine: { lineStyle: { color: '#eef2ee' } },
+        axisLabel: { color: '#93a098', fontSize: 11 }
+      },
+      {
+        type: 'value',
+        name: '活跃',
+        nameTextStyle: { color: '#93a098' },
+        splitLine: { show: false },
+        axisLabel: { color: '#93a098', fontSize: 11 }
+      }
+    ],
+    series: [
+      {
+        name: '新学',
+        type: 'bar',
+        data: act.map((d) => d.learned),
+        barWidth: 7,
+        itemStyle: { color: PALETTE.green, borderRadius: [3, 3, 0, 0] }
+      },
+      {
+        name: '复习',
+        type: 'bar',
+        data: act.map((d) => d.reviewed),
+        barWidth: 7,
+        itemStyle: { color: PALETTE.blue, borderRadius: [3, 3, 0, 0] }
+      },
+      {
+        name: '活跃用户',
+        type: 'line',
+        yAxisIndex: 1,
+        data: act.map((d) => d.activeUsers),
+        smooth: true,
+        symbol: 'circle',
+        symbolSize: 5,
+        lineStyle: { color: PALETTE.amber, width: 2.5 },
+        itemStyle: { color: PALETTE.amber }
+      }
+    ]
+  }
+})
+
+const growthOpt = computed(() => {
+  const g = dash.value?.userGrowth14 || []
+  return {
+    tooltip: { trigger: 'axis' },
+    grid: { left: 8, right: 12, top: 24, bottom: 0, containLabel: true },
+    xAxis: {
+      type: 'category',
+      data: g.map((d) => d.date),
+      axisTick: { show: false },
+      axisLine: { lineStyle: { color: '#e3e9e4' } },
+      axisLabel: { color: '#93a098', fontSize: 11, interval: 1 }
+    },
+    yAxis: {
+      type: 'value',
+      minInterval: 1,
+      splitLine: { lineStyle: { color: '#eef2ee' } },
+      axisLabel: { color: '#93a098', fontSize: 11 }
+    },
+    series: [
+      {
+        name: '新增用户',
+        type: 'bar',
+        data: g.map((d) => d.count),
+        barWidth: 9,
+        itemStyle: { color: PALETTE.green, borderRadius: [4, 4, 0, 0] }
+      }
+    ]
+  }
+})
+
+const difficultyOpt = computed(() => {
+  const dist = dash.value?.difficultyDist || []
+  return {
+    tooltip: {
+      trigger: 'item',
+      formatter: '{b}：{c} 词（{d}%）'
+    },
+    legend: {
+      bottom: 0,
+      icon: 'circle',
+      itemWidth: 8,
+      itemHeight: 8,
+      textStyle: { color: '#5f6f66', fontSize: 12 }
+    },
+    color: [PALETTE.green, PALETTE.amber, PALETTE.rust],
+    series: [
+      {
+        name: '难度分布',
+        type: 'pie',
+        radius: ['50%', '74%'],
+        center: ['50%', '44%'],
+        avoidLabelOverlap: true,
+        itemStyle: { borderColor: '#fff', borderWidth: 4, borderRadius: 6 },
+        label: { show: false },
+        data: dist
+      }
+    ]
+  }
+})
+
+const rankPct = (u) => {
+  if (!u.totalLearned) return 0
+  return Math.min(100, Math.round((u.mastered / u.totalLearned) * 100))
+}
+
+// ==================== 用户管理 ====================
 const users = ref([])
 const usersLoading = ref(false)
+const usersLoaded = ref(false)
+
+const openUsers = async () => {
+  active.value = 'users'
+  if (usersLoaded.value) return
+  await loadUsers()
+}
 
 const loadUsers = async () => {
   usersLoading.value = true
   try {
     users.value = await getAllUsers()
+    usersLoaded.value = true
   } catch (e) {
     console.error(e)
+    ElMessage.error('用户列表加载失败')
   } finally {
     usersLoading.value = false
   }
@@ -412,688 +685,803 @@ const onToggleStatus = async (row) => {
   const nextEnabled = !row.enabled
   try {
     await ElMessageBox.confirm(
-      nextEnabled ? `确认解封用户「${row.username}」？` : `确认封禁用户「${row.username}」？封禁后该用户将无法登录。`,
+      nextEnabled
+        ? `确认解封用户「${row.username}」？`
+        : `确认封禁用户「${row.username}」？封禁后该用户将无法登录。`,
       '请确认',
       { type: 'warning' }
     )
+  } catch {
+    return
+  }
+  try {
     await updateUserStatus(row.id, nextEnabled)
     row.enabled = nextEnabled
     ElMessage.success(nextEnabled ? '已解封' : '已封禁')
   } catch (e) {
-    if (e !== 'cancel') console.error(e)
+    console.error(e)
+    ElMessage.error('操作失败')
   }
 }
 
 const onDeleteUser = async (row) => {
   try {
-    await ElMessageBox.confirm(`确认删除用户「${row.username}」？此操作不可恢复。`, '请确认', { type: 'warning' })
+    await ElMessageBox.confirm(
+      `确认删除用户「${row.username}」？其学习记录、收藏等数据会一并删除，此操作不可恢复。`,
+      '请确认',
+      { type: 'warning', confirmButtonText: '删除', confirmButtonClass: 'el-button--danger' }
+    )
+  } catch {
+    return
+  }
+  try {
     await deleteUser(row.id)
     ElMessage.success('已删除')
     loadUsers()
   } catch (e) {
-    if (e !== 'cancel') console.error(e)
+    console.error(e)
+    ElMessage.error('删除失败')
   }
 }
 
-// ---------- 单词库管理 ----------
-const words = ref([])
-const wordsLoading = ref(false)
-const wordSearchKeyword = ref('')
-const selectedWordIds = ref([])
-const generatingExamples = ref(false)
-const generatingProgress = ref({ done: 0, total: 0 })
+// ---------- 用户学习详情抽屉 ----------
+const detailVisible = ref(false)
+const detailLoading = ref(false)
+const detail = ref(null)
+const detailTab = ref('records')
 
-// 每批处理的单词数，跟后端 AdminService.MAX_BATCH_SIZE（20）留出余量，
-// 一次调用几个单词更快返回，卡住也只影响一小批，不会拖垮整个请求。
-const GENERATE_CHUNK_SIZE = 5
-
-const onWordSelectionChange = (selection) => {
-  selectedWordIds.value = selection.map((row) => row.id)
-}
-
-const onGenerateExamples = async () => {
-  if (!selectedWordIds.value.length) return
-  const ids = [...selectedWordIds.value]
-
-  if (ids.length > 50) {
-    try {
-      await ElMessageBox.confirm(
-        `你选中了 ${ids.length} 个单词，数量较多，处理时间会比较长（每 ${GENERATE_CHUNK_SIZE} 个一批逐批进行）。确认继续吗？`,
-        '请确认',
-        { type: 'warning' }
-      )
-    } catch {
-      return
-    }
-  }
-
-  generatingExamples.value = true
-  generatingProgress.value = { done: 0, total: ids.length }
-
-  let totalGenerated = 0
-  let totalSkipped = 0
-  let totalFailed = 0
-  let totalExamples = 0
-
-  for (let i = 0; i < ids.length; i += GENERATE_CHUNK_SIZE) {
-    const chunk = ids.slice(i, i + GENERATE_CHUNK_SIZE)
-    try {
-      const result = await generateExamplesForWords(chunk, 3)
-      totalGenerated += result.wordsGenerated || 0
-      totalSkipped += result.wordsSkipped || 0
-      totalFailed += result.wordsFailed || 0
-      totalExamples += result.totalExamplesCreated || 0
-    } catch (e) {
-      console.error(e)
-      totalFailed += chunk.length
-    }
-    generatingProgress.value.done = Math.min(i + GENERATE_CHUNK_SIZE, ids.length)
-  }
-
-  generatingExamples.value = false
-  ElMessage.success(
-    `完成：成功给 ${totalGenerated} 个单词生成了共 ${totalExamples} 条例句`
-    + (totalSkipped ? `，跳过 ${totalSkipped} 个已有例句的单词` : '')
-    + (totalFailed ? `，${totalFailed} 个单词生成失败` : '')
-  )
-  loadWords()
-}
-
-const onBatchDeleteWords = async () => {
-  if (!selectedWordIds.value.length) return
+const openUserDetail = async (row) => {
+  detailVisible.value = true
+  detailLoading.value = true
+  detailTab.value = 'records'
   try {
-    await ElMessageBox.confirm(
-      `确认删除选中的 ${selectedWordIds.value.length} 个单词？关联的例句、学习记录也会一并删除，此操作不可恢复。`,
-      '请确认',
-      { type: 'warning' }
-    )
-    await batchDeleteWords(selectedWordIds.value)
-    ElMessage.success('已删除')
-    selectedWordIds.value = []
-    loadWords()
-  } catch (e) {
-    if (e !== 'cancel') {
-      console.error(e)
-      ElMessage.error('删除失败')
-    }
-  }
-}
-
-const filteredWords = computed(() => {
-  if (!wordSearchKeyword.value) return words.value
-  const kw = wordSearchKeyword.value.toLowerCase()
-  return words.value.filter(
-    (w) => w.word?.toLowerCase().includes(kw) || w.definition?.includes(wordSearchKeyword.value)
-  )
-})
-
-const loadWords = async () => {
-  wordsLoading.value = true
-  try {
-    words.value = await getAdminWords()
+    detail.value = await getAdminUserDetail(row.id)
   } catch (e) {
     console.error(e)
+    ElMessage.error('学习详情加载失败')
   } finally {
-    wordsLoading.value = false
+    detailLoading.value = false
   }
 }
 
-const difficultyLabel = (level) => ({ EASY: '简单', MEDIUM: '中等', HARD: '困难' }[level] || level)
-const difficultyClass = (level) => ({ EASY: 'ok', MEDIUM: 'warn', HARD: 'banned' }[level] || '')
-
-const wordDialogVisible = ref(false)
-const wordSaving = ref(false)
-const editingWord = ref(null)
-const wordForm = reactive({
-  word: '',
-  phonetic: '',
-  definition: '',
-  aiDefinition: '',
-  partOfSpeech: '',
-  difficultyLevel: 'MEDIUM',
-  audioUrl: ''
+const masteryPct = computed(() => {
+  const s = detail.value?.summary
+  if (!s || !s.totalRecords) return 0
+  return Math.min(100, Math.round((s.mastered / s.totalRecords) * 100))
 })
 
-const resetWordForm = () => {
-  wordForm.word = ''
-  wordForm.phonetic = ''
-  wordForm.definition = ''
-  wordForm.aiDefinition = ''
-  wordForm.partOfSpeech = ''
-  wordForm.difficultyLevel = 'MEDIUM'
-  wordForm.audioUrl = ''
+const masteryColor = computed(() => {
+  if (masteryPct.value >= 60) return '#17a05c'
+  if (masteryPct.value >= 30) return '#e6a23c'
+  return '#e05d4a'
+})
+
+const statusLabel = (st) => ({
+  NEW: '新学',
+  LEARNING: '学习中',
+  REVIEWING: '复习中',
+  MASTERED: '已掌握'
+}[st] || st)
+
+const statusClass = (st) => ({
+  NEW: 'info',
+  LEARNING: 'amber',
+  REVIEWING: 'blue',
+  MASTERED: 'moss'
+}[st] || 'info')
+
+// ==================== 系统公告 ====================
+const announcements = ref([])
+const annLoading = ref(false)
+const annLoaded = ref(false)
+
+const openAnnouncements = async () => {
+  active.value = 'announcements'
+  if (annLoaded.value) return
+  await loadAnnouncements()
 }
 
-const openWordDialog = (row) => {
+const loadAnnouncements = async () => {
+  annLoading.value = true
+  try {
+    announcements.value = await getAdminAnnouncements()
+    annLoaded.value = true
+  } catch (e) {
+    console.error(e)
+    ElMessage.error('公告列表加载失败')
+  } finally {
+    annLoading.value = false
+  }
+}
+
+const annDialogVisible = ref(false)
+const annSaving = ref(false)
+const annForm = reactive({ id: null, title: '', content: '', enabled: true })
+
+const openAnnouncementDialog = (row) => {
   if (row) {
-    editingWord.value = row
-    Object.assign(wordForm, {
-      word: row.word,
-      phonetic: row.phonetic,
-      definition: row.definition,
-      aiDefinition: row.aiDefinition,
-      partOfSpeech: row.partOfSpeech,
-      difficultyLevel: row.difficultyLevel,
-      audioUrl: row.audioUrl
+    Object.assign(annForm, { id: row.id, title: row.title, content: row.content || '', enabled: !!row.enabled })
+  } else {
+    Object.assign(annForm, { id: null, title: '', content: '', enabled: true })
+  }
+  annDialogVisible.value = true
+}
+
+const saveAnnouncement = async () => {
+  if (!annForm.title.trim()) {
+    ElMessage.warning('请填写公告标题')
+    return
+  }
+  annSaving.value = true
+  const payload = { title: annForm.title.trim(), content: annForm.content, enabled: annForm.enabled }
+  try {
+    if (annForm.id) {
+      await updateAdminAnnouncement(annForm.id, payload)
+      ElMessage.success('公告已更新')
+    } else {
+      await createAdminAnnouncement(payload)
+      ElMessage.success('公告已创建')
+    }
+    annDialogVisible.value = false
+    loadAnnouncements()
+  } catch (e) {
+    console.error(e)
+    ElMessage.error('保存失败')
+  } finally {
+    annSaving.value = false
+  }
+}
+
+const onToggleAnnouncement = async (row, val) => {
+  try {
+    await updateAdminAnnouncement(row.id, { enabled: val })
+    row.enabled = val
+    ElMessage.success(val ? '公告已发布' : '公告已下线')
+  } catch (e) {
+    console.error(e)
+    row.enabled = !val
+    ElMessage.error('操作失败')
+  }
+}
+
+const onDeleteAnnouncement = async (row) => {
+  try {
+    await ElMessageBox.confirm(`确认删除公告「${row.title}」？`, '请确认', {
+      type: 'warning',
+      confirmButtonText: '删除',
+      confirmButtonClass: 'el-button--danger'
     })
-  } else {
-    editingWord.value = null
-    resetWordForm()
-  }
-  wordDialogVisible.value = true
-}
-
-const saveWord = async () => {
-  if (!wordForm.word || !wordForm.definition) {
-    ElMessage.warning('单词和释义为必填项')
+  } catch {
     return
   }
-  wordSaving.value = true
   try {
-    if (editingWord.value) {
-      await apiUpdateWord(editingWord.value.id, wordForm)
-      ElMessage.success('已更新')
-    } else {
-      await apiCreateWord(wordForm)
-      ElMessage.success('已添加')
-    }
-    wordDialogVisible.value = false
-    loadWords()
-  } catch (e) {
-    console.error(e)
-  } finally {
-    wordSaving.value = false
-  }
-}
-
-const onDeleteWord = async (row) => {
-  try {
-    await ElMessageBox.confirm(`确认删除单词「${row.word}」？关联的例句、学习记录也会一并删除。`, '请确认', { type: 'warning' })
-    await apiDeleteWord(row.id)
+    await deleteAdminAnnouncement(row.id)
     ElMessage.success('已删除')
-    loadWords()
-  } catch (e) {
-    if (e !== 'cancel') console.error(e)
-  }
-}
-
-// ---------- 例句管理 ----------
-const exampleDialogVisible = ref(false)
-const exampleTargetWord = ref(null)
-const examples = ref([])
-const exampleSaving = ref(false)
-const exampleForm = reactive({ sentence: '', translation: '' })
-
-const openExampleDialog = async (row) => {
-  exampleTargetWord.value = row
-  exampleForm.sentence = ''
-  exampleForm.translation = ''
-  exampleDialogVisible.value = true
-  try {
-    examples.value = await getExampleSentences(row.id)
+    loadAnnouncements()
   } catch (e) {
     console.error(e)
-  }
-}
-
-const addExample = async () => {
-  if (!exampleForm.sentence) {
-    ElMessage.warning('请填写英文例句')
-    return
-  }
-  exampleSaving.value = true
-  try {
-    await addExampleSentence(exampleTargetWord.value.id, exampleForm)
-    ElMessage.success('已添加')
-    exampleForm.sentence = ''
-    exampleForm.translation = ''
-    examples.value = await getExampleSentences(exampleTargetWord.value.id)
-  } catch (e) {
-    console.error(e)
-  } finally {
-    exampleSaving.value = false
-  }
-}
-
-const onDeleteExample = async (ex) => {
-  try {
-    await deleteExampleSentence(ex.id)
-    examples.value = examples.value.filter((e) => e.id !== ex.id)
-    ElMessage.success('已删除')
-  } catch (e) {
-    console.error(e)
-  }
-}
-
-const formatDate = (dateStr) => {
-  if (!dateStr) return '—'
-  return dateStr.replace('T', ' ').slice(0, 16)
-}
-
-// ---------- PDF / 文本导入 ----------
-const importMode = ref('file')
-const useAi = ref(false)
-const importFile = ref(null)
-const pasteText = ref('')
-const parsing = ref(false)
-const importItems = ref([])
-const importing = ref(false)
-const aiMeta = ref(null) // { truncated, totalChunks, processedChunks, failedChunks }，仅AI模式下有值
-
-const selectedImportCount = computed(() => importItems.value.filter((i) => i.selected).length)
-
-const onImportFileChange = (uploadFile) => {
-  importFile.value = uploadFile.raw
-  importItems.value = []
-  aiMeta.value = null
-}
-
-const applyParsedItems = (items) => {
-  importItems.value = items.map((item) => ({ ...item, selected: !item.alreadyExists }))
-  if (!items.length) {
-    ElMessage.warning('没有解析出可识别的单词条目')
-  } else {
-    ElMessage.success(`解析出 ${items.length} 条候选单词`)
-  }
-}
-
-const parseImportFile = async () => {
-  if (!importFile.value) return
-  parsing.value = true
-  aiMeta.value = null
-  try {
-    if (useAi.value) {
-      const result = await parseAiFileImport(importFile.value)
-      aiMeta.value = {
-        truncated: result.truncated,
-        totalChunks: result.totalChunks,
-        processedChunks: result.processedChunks,
-        failedChunks: result.failedChunks
-      }
-      applyParsedItems(result.items)
-    } else {
-      const result = await parsePdfImport(importFile.value)
-      applyParsedItems(result)
-    }
-  } catch (e) {
-    console.error(e)
-  } finally {
-    parsing.value = false
-  }
-}
-
-const parsePastedText = async () => {
-  if (!pasteText.value.trim()) return
-  parsing.value = true
-  aiMeta.value = null
-  try {
-    if (useAi.value) {
-      const result = await parseAiTextImport(pasteText.value)
-      aiMeta.value = {
-        truncated: result.truncated,
-        totalChunks: result.totalChunks,
-        processedChunks: result.processedChunks,
-        failedChunks: result.failedChunks
-      }
-      applyParsedItems(result.items)
-    } else {
-      const result = await parseTextImport(pasteText.value)
-      applyParsedItems(result)
-    }
-  } catch (e) {
-    console.error(e)
-  } finally {
-    parsing.value = false
-  }
-}
-
-const confirmImportSelected = async () => {
-  const selected = importItems.value.filter((i) => i.selected)
-  if (!selected.length) return
-  importing.value = true
-  try {
-    const result = await confirmPdfImport(selected)
-    const exampleMsg = result.examplesImported ? `，附带导入 ${result.examplesImported} 条例句` : ''
-    ElMessage.success(`成功导入 ${result.imported} 个单词，跳过 ${result.skipped} 个重复单词${exampleMsg}`)
-    importItems.value = []
-    importFile.value = null
-    pasteText.value = ''
-    aiMeta.value = null
-    loadWords()
-  } catch (e) {
-    console.error(e)
-  } finally {
-    importing.value = false
+    ElMessage.error('删除失败')
   }
 }
 
 onMounted(() => {
-  getSystemStatistics().then((data) => (stats.value = data)).catch(console.error)
-  loadUsers()
-  loadWords()
+  loadDashboard()
 })
 </script>
 
 <style scoped>
-.admin-page {
+/* ============ 整体布局 ============ */
+.admin-layout {
+  display: flex;
   min-height: 100vh;
-  background: var(--color-paper);
+  background: var(--color-bg);
 }
 
-.top-bar {
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border-soft);
+/* 左侧栏 */
+.admin-side {
+  width: 216px;
+  flex-shrink: 0;
   position: sticky;
   top: 0;
-  z-index: 10;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
 }
-.top-bar-inner {
-  max-width: 1240px;
-  margin: 0 auto;
-  padding: 14px var(--space-6);
+.side-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 18px;
+}
+.side-logo {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-deep) 100%);
+  color: #fff;
+  font-size: 19px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(23, 160, 92, 0.3);
+}
+.side-brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+.side-brand-text strong {
+  font-size: 15px;
+  color: var(--color-ink);
+}
+.side-brand-text span {
+  font-size: 12px;
+  color: var(--color-ink-faint);
+}
+
+.side-nav {
+  flex: 1;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.side-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  border: none;
+  background: transparent;
+  border-radius: 12px;
+  color: var(--color-ink-soft);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+}
+.side-item:hover {
+  background: var(--color-surface-2);
+  color: var(--color-primary-deep);
+}
+.side-item.active {
+  background: var(--color-primary-tint);
+  color: var(--color-primary-deep);
+  font-weight: 700;
+}
+
+.side-foot {
+  padding: 14px 18px;
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.foot-chip {
+  font-size: 12px;
+  color: var(--color-ink-faint);
+}
+.foot-chip.danger {
+  color: var(--color-rust);
+}
+
+/* 右侧 */
+.admin-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.admin-top {
+  position: sticky;
+  top: 0;
+  z-index: 50;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 14px 28px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--color-border);
 }
-.brand {
+.admin-top h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--color-ink);
+}
+.top-actions {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  cursor: pointer;
+  gap: 12px;
 }
-.brand-mark {
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
-  background: var(--color-primary-deep);
+.back-home {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border);
+  color: var(--color-ink-soft);
+  font-size: 13px;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+.back-home:hover {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  background: var(--color-primary-tint);
+}
+.top-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px 4px 4px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+.top-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--color-primary-tint);
+  color: var(--color-primary-deep);
+  font-weight: 700;
+  font-size: 13px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
-.brand-mark span {
-  font-family: var(--font-display);
-  font-weight: 700;
-  color: #fff;
-  font-size: 16px;
+.top-name {
+  font-size: 13px;
+  color: var(--color-ink);
 }
-.brand-name {
-  font-size: 18px;
-  font-weight: 700;
-}
-.user-zone {
+.logout-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-ink-soft);
   display: flex;
   align-items: center;
-  gap: var(--space-4);
-}
-.user-greeting {
-  font-size: 14px;
-  color: var(--color-ink-soft);
-}
-.ghost-btn {
-  border: 1px solid var(--color-border);
-  background: transparent;
-  color: var(--color-ink-soft);
-  padding: 7px 16px;
-  border-radius: var(--radius-sm);
-  font-size: 13px;
+  justify-content: center;
   cursor: pointer;
+  transition: all 0.15s ease;
 }
-.ghost-btn:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-
-.main-content {
-  max-width: 1240px;
-  margin: 0 auto;
-  padding: var(--space-6);
+.logout-btn:hover {
+  color: var(--color-rust);
+  border-color: var(--color-rust);
 }
 
-.stat-row {
+.admin-content {
+  flex: 1;
+  padding: 24px 28px 64px;
+}
+
+/* ============ 数据看板 ============ */
+.dash-view {
+  min-height: 60vh;
+}
+.kpi-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: var(--space-4);
-  margin-bottom: var(--space-6);
+  grid-template-columns: repeat(6, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
 }
-.mini-stat {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-soft);
-  border-radius: var(--radius-sm);
-  padding: var(--space-4);
+.kpi-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+}
+.kpi-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.kpi-icon.green { background: var(--color-primary-tint); color: var(--color-primary-deep); }
+.kpi-icon.blue { background: #e7f1fc; color: var(--color-blue); }
+.kpi-icon.amber { background: #fdf3e2; color: var(--color-amber); }
+.kpi-icon.moss { background: #e7f6ee; color: var(--color-moss); }
+.kpi-icon.rust { background: #fdecea; color: var(--color-rust); }
+
+.kpi-info {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  min-width: 0;
 }
-.mini-stat-label {
+.kpi-label {
   font-size: 12px;
   color: var(--color-ink-soft);
 }
-.mini-stat-value {
-  font-family: var(--font-mono);
-  font-size: 22px;
-  font-weight: 500;
+.kpi-value {
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.2;
+  color: var(--color-ink);
+  font-variant-numeric: tabular-nums;
+}
+.kpi-sub {
+  font-size: 11px;
+  color: var(--color-ink-faint);
 }
 
-.tab-strip {
+.chart-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+.chart-card {
+  padding: 18px 20px 14px;
+}
+.chart-card.span-2 {
+  grid-column: span 2;
+}
+.chart-head {
   display: flex;
-  gap: var(--space-2);
-  margin-bottom: var(--space-4);
-  border-bottom: 1px solid var(--color-border-soft);
-}
-.tab-btn {
-  border: none;
-  background: transparent;
-  padding: 10px 4px;
-  margin-right: var(--space-5);
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--color-ink-soft);
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-}
-.tab-btn.active {
-  color: var(--color-primary);
-  border-bottom-color: var(--color-primary);
-}
-
-.panel {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-soft);
-  border-radius: var(--radius-card);
-  padding: var(--space-5);
-  box-shadow: var(--shadow-card);
-}
-.panel-toolbar {
-  display: flex;
+  align-items: baseline;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--space-4);
+  gap: 10px;
+  margin-bottom: 10px;
 }
-.toolbar-actions {
-  display: flex;
-  gap: var(--space-3);
+.chart-head h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-ink);
 }
-.primary-btn.small.ghost {
-  background: transparent;
-  color: var(--color-primary);
-  border: 1px solid var(--color-primary);
-}
-.primary-btn.small.ghost:hover:not(:disabled) {
-  background: var(--color-primary-tint);
-}
-.primary-btn.small.ghost:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  border-color: var(--color-border);
-  color: var(--color-ink-soft);
-}
-.primary-btn.small.danger {
-  background: transparent;
-  color: var(--color-rust);
-  border: 1px solid var(--color-rust);
-}
-.primary-btn.small.danger:hover:not(:disabled) {
-  background: var(--color-rust-tint);
-}
-.primary-btn.small.danger:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  border-color: var(--color-border);
-  color: var(--color-ink-soft);
-}
-.progress-hint {
-  font-size: 13px;
-  color: var(--color-primary);
+.chart-sub {
+  font-size: 12px;
+  color: var(--color-ink-faint);
 }
 
-.primary-btn.small {
-  height: 34px;
-  padding: 0 16px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: var(--color-primary);
-  color: #fff;
+/* 学习榜 */
+.rank-list {
+  display: flex;
+  flex-direction: column;
+}
+.rank-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+}
+.rank-no {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: var(--color-surface-2);
+  color: var(--color-ink-faint);
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.rank-no.r1 { background: #fdf3e2; color: var(--color-amber); }
+.rank-no.r2 { background: #eef1f3; color: #8a97a1; }
+.rank-no.r3 { background: #fdece5; color: #d0804f; }
+.rank-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--color-primary-tint);
+  color: var(--color-primary-deep);
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.rank-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.rank-name {
   font-size: 13px;
   font-weight: 600;
-  cursor: pointer;
+  color: var(--color-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.primary-btn.small:hover:not(:disabled) {
-  background: var(--color-primary-deep);
-}
-.primary-btn.small:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.status-pill {
-  display: inline-block;
-  font-size: 12px;
-  padding: 2px 10px;
+.rank-bar {
+  height: 5px;
   border-radius: 999px;
+  background: var(--color-surface-2);
+  overflow: hidden;
 }
-.status-pill.ok {
-  background: var(--color-moss-tint);
-  color: var(--color-moss);
+.rank-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--color-primary), #3ec47f);
 }
-.status-pill.warn {
-  background: var(--color-amber-tint);
-  color: var(--color-amber);
+.rank-nums {
+  font-size: 12px;
+  color: var(--color-ink-soft);
+  white-space: nowrap;
 }
-.status-pill.banned {
-  background: var(--color-rust-tint);
-  color: var(--color-rust);
+.rank-nums strong {
+  font-size: 15px;
+  color: var(--color-ink);
+  font-variant-numeric: tabular-nums;
 }
 
-.example-list {
-  max-height: 260px;
-  overflow-y: auto;
-  margin-bottom: var(--space-4);
+/* ============ 通用面板（用户/公告） ============ */
+.panel-view {
+  padding: 20px 22px;
 }
-.empty-hint {
-  color: var(--color-ink-soft);
-  font-size: 13px;
-  text-align: center;
-  padding: var(--space-5) 0;
-}
-.example-item {
+.panel-head {
   display: flex;
-  justify-content: space-between;
   align-items: flex-start;
-  gap: var(--space-3);
-  padding: var(--space-3) 0;
-  border-bottom: 1px solid var(--color-border-soft);
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
 }
-.example-text .en {
-  margin: 0 0 4px 0;
-  font-size: 14px;
+.panel-head h3 {
+  margin: 0 0 2px;
+  font-size: 17px;
+  font-weight: 800;
   color: var(--color-ink);
 }
-.example-text .zh {
+.panel-sub {
   margin: 0;
-  font-size: 13px;
-  color: var(--color-ink-soft);
+  font-size: 12.5px;
+  color: var(--color-ink-faint);
 }
-.example-form {
-  border-top: 1px solid var(--color-border-soft);
-  padding-top: var(--space-4);
+.user-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.cell-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--color-primary-tint);
+  color: var(--color-primary-deep);
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.status-dot {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+.status-dot.ok {
+  color: var(--color-moss);
+  background: var(--color-primary-tint);
+}
+.status-dot.off {
+  color: var(--color-rust);
+  background: #fdecea;
+}
+.ann-title {
+  font-weight: 600;
+  color: var(--color-ink);
 }
 
-.import-mode-switch {
-  display: inline-flex;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  margin-bottom: var(--space-4);
-}
-.mode-btn {
-  border: none;
-  background: var(--color-surface);
-  color: var(--color-ink-soft);
-  padding: 7px 18px;
-  font-size: 13px;
-  cursor: pointer;
-}
-.mode-btn.active {
-  background: var(--color-primary);
-  color: #fff;
-}
-.import-paste {
-  margin-bottom: var(--space-3);
-}
-.import-paste .primary-btn.small {
-  margin-top: var(--space-3);
-}
-.import-upload {
+/* ============ 用户详情抽屉 ============ */
+.user-hero {
   display: flex;
-  align-items: flex-start;
-  gap: var(--space-4);
-  margin-bottom: var(--space-3);
+  align-items: center;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--color-primary-tint), #ffffff 70%);
+  border: 1px solid var(--color-border);
 }
-.import-upload :deep(.el-upload-dragger) {
-  width: 420px;
-  padding: var(--space-4);
+.hero-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-deep));
+  color: #fff;
+  font-size: 22px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 6px 14px rgba(23, 160, 92, 0.25);
 }
-.upload-inner {
+.hero-main {
+  min-width: 0;
+}
+.hero-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--color-ink);
+}
+.hero-meta {
+  margin-top: 4px;
+  font-size: 12.5px;
+  color: var(--color-ink-soft);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.hero-meta .dot {
+  color: var(--color-ink-faint);
+}
+
+.sum-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+  margin: 16px 0;
+}
+.sum-item {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 12px 6px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  color: var(--color-ink-soft);
-  font-size: 13px;
+  gap: 2px;
 }
-.import-hint {
-  font-size: 12px;
-  color: var(--color-ink-soft);
-  margin: 0 0 var(--space-4) 0;
-}
-.ai-toggle {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  margin-bottom: var(--space-4);
-}
-.ai-toggle-label {
-  font-size: 13px;
+.sum-value {
+  font-size: 20px;
+  font-weight: 800;
   color: var(--color-ink);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
 }
-.ai-toggle-hint {
-  font-size: 12px;
-  color: var(--color-ink-soft);
+.sum-value.moss { color: var(--color-moss); }
+.sum-value.amber { color: var(--color-amber); }
+.sum-value.blue { color: var(--color-blue); }
+.sum-value.rust { color: var(--color-rust); }
+.sum-label {
+  font-size: 11px;
+  color: var(--color-ink-faint);
 }
-.ai-truncated-hint {
-  background: var(--color-amber-tint);
-  color: var(--color-amber);
-  font-size: 12px;
-  padding: 8px 12px;
-  border-radius: var(--radius-sm);
-  margin-bottom: var(--space-3);
+
+.mastery-bar {
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  margin-bottom: 8px;
 }
-.import-toolbar {
+.mastery-head {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--space-3);
   font-size: 13px;
   color: var(--color-ink-soft);
+  margin-bottom: 8px;
+}
+.mastery-head strong {
+  color: var(--color-ink);
+}
+
+.mini-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.mini-row {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--color-surface);
+}
+.mini-word {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.mini-word strong {
+  font-size: 15px;
+  color: var(--color-ink);
+}
+.mini-phonetic {
+  font-size: 12px;
+  color: var(--color-ink-faint);
+}
+.mini-status {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.mini-status.moss { background: var(--color-primary-tint); color: var(--color-moss); }
+.mini-status.amber { background: #fdf3e2; color: var(--color-amber); }
+.mini-status.blue { background: #e7f1fc; color: var(--color-blue); }
+.mini-status.info { background: var(--color-surface-2); color: var(--color-ink-soft); }
+.mini-status.rust { background: #fdecea; color: var(--color-rust); }
+.mini-sub {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--color-ink-soft);
+}
+.fav-time {
+  color: var(--color-ink-faint);
+}
+
+/* ============ 响应式 ============ */
+@media (max-width: 1280px) {
+  .kpi-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .sum-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+@media (max-width: 980px) {
+  .admin-layout {
+    flex-direction: column;
+  }
+  .admin-side {
+    position: static;
+    width: 100%;
+    height: auto;
+    flex-direction: row;
+    align-items: center;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+    padding: 8px 14px;
+    gap: 10px;
+  }
+  .side-brand {
+    padding: 4px 6px;
+  }
+  .side-nav {
+    flex-direction: row;
+    flex: 1;
+    padding: 0;
+  }
+  .side-item {
+    flex: 1;
+    justify-content: center;
+    padding: 8px 6px;
+  }
+  .side-foot {
+    display: none;
+  }
+  .chart-grid {
+    grid-template-columns: 1fr;
+  }
+  .chart-card.span-2 {
+    grid-column: span 1;
+  }
+  .admin-top {
+    padding: 12px 16px;
+  }
+  .admin-content {
+    padding: 16px 16px 56px;
+  }
+  .back-home span {
+    display: none;
+  }
 }
 </style>

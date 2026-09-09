@@ -1,352 +1,448 @@
 <template>
-  <div class="statistics-container">
-    <el-container>
-      <el-header class="header">
-        <div class="header-content">
-          <el-button @click="goBack" type="primary" plain>
-            <el-icon><ArrowLeft /></el-icon> 返回
-          </el-button>
-          <h2>学习统计</h2>
-        </div>
-      </el-header>
-      
-      <el-main class="main-content">
-        <div v-if="loading" class="loading-container">
-          <el-icon class="is-loading" size="48"><Loading /></el-icon>
-          <p>加载中...</p>
-        </div>
-        
-        <div v-else class="statistics-content">
-          <el-row :gutter="20">
-            <el-col :span="6">
-              <el-card class="stat-card" shadow="hover">
-                <div class="stat-content">
-                  <el-icon class="stat-icon" color="#409EFF"><Document /></el-icon>
-                  <div class="stat-info">
-                    <div class="stat-value">{{ statistics.totalWords }}</div>
-                    <div class="stat-label">总单词数</div>
-                  </div>
-                </div>
-              </el-card>
-            </el-col>
-            
-            <el-col :span="6">
-              <el-card class="stat-card" shadow="hover">
-                <div class="stat-content">
-                  <el-icon class="stat-icon" color="#67C23A"><SuccessFilled /></el-icon>
-                  <div class="stat-info">
-                    <div class="stat-value">{{ statistics.masteredWords }}</div>
-                    <div class="stat-label">已掌握</div>
-                  </div>
-                </div>
-              </el-card>
-            </el-col>
-            
-            <el-col :span="6">
-              <el-card class="stat-card" shadow="hover">
-                <div class="stat-content">
-                  <el-icon class="stat-icon" color="#E6A23C"><Loading /></el-icon>
-                  <div class="stat-info">
-                    <div class="stat-value">{{ statistics.learningWords }}</div>
-                    <div class="stat-label">学习中</div>
-                  </div>
-                </div>
-              </el-card>
-            </el-col>
-            
-            <el-col :span="6">
-              <el-card class="stat-card" shadow="hover">
-                <div class="stat-content">
-                  <el-icon class="stat-icon" color="#F56C6C"><Clock /></el-icon>
-                  <div class="stat-info">
-                    <div class="stat-value">{{ statistics.dueReviews }}</div>
-                    <div class="stat-label">待复习</div>
-                  </div>
-                </div>
-              </el-card>
-            </el-col>
-          </el-row>
-          
-          <el-row :gutter="20" class="progress-section">
-            <el-col :span="12">
-              <el-card shadow="hover">
-                <template #header>
-                  <div class="card-header">
-                    <span>学习进度</span>
-                  </div>
-                </template>
-                <div class="progress-content">
-                  <el-progress 
-                    :percentage="masteryPercentage" 
-                    :color="progressColor"
-                    :stroke-width="20"
-                    :text-inside="true"
-                  />
-                  <div class="progress-text">
-                    掌握率: {{ masteryPercentage }}%
-                  </div>
-                </div>
-              </el-card>
-            </el-col>
-            
-            <el-col :span="12">
-              <el-card shadow="hover">
-                <template #header>
-                  <div class="card-header">
-                    <span>学习状态分布</span>
-                  </div>
-                </template>
-                <div class="status-distribution">
-                  <div class="status-item">
-                    <div class="status-bar mastered" :style="{ width: masteryPercentage + '%' }"></div>
-                    <span>已掌握: {{ statistics.masteredWords }}</span>
-                  </div>
-                  <div class="status-item">
-                    <div class="status-bar learning" :style="{ width: learningPercentage + '%' }"></div>
-                    <span>学习中: {{ statistics.learningWords }}</span>
-                  </div>
-                </div>
-              </el-card>
-            </el-col>
-          </el-row>
-          
-          <el-row :gutter="20" class="tips-section">
-            <el-col :span="24">
-              <el-card shadow="hover">
-                <template #header>
-                  <div class="card-header">
-                    <span>学习建议</span>
-                  </div>
-                </template>
-                <div class="tips-content">
-                  <div v-if="statistics.dueReviews > 0" class="tip-item">
-                    <el-icon color="#F56C6C"><Warning /></el-icon>
-                    <span>您有 {{ statistics.dueReviews }} 个单词需要复习，建议先完成复习再学习新单词。</span>
-                  </div>
-                  <div v-else class="tip-item">
-                    <el-icon color="#67C23A"><SuccessFilled /></el-icon>
-                    <span>当前没有需要复习的单词，可以继续学习新单词。</span>
-                  </div>
-                  
-                  <div v-if="masteryPercentage < 30" class="tip-item">
-                    <el-icon color="#E6A23C"><InfoFilled /></el-icon>
-                    <span>您的掌握率较低，建议多花时间复习和练习。</span>
-                  </div>
-                  <div v-else-if="masteryPercentage < 70" class="tip-item">
-                    <el-icon color="#409EFF"><InfoFilled /></el-icon>
-                    <span>您的学习进展良好，继续保持！</span>
-                  </div>
-                  <div v-else class="tip-item">
-                    <el-icon color="#67C23A"><SuccessFilled /></el-icon>
-                    <span>您的掌握率很高，表现优秀！</span>
-                  </div>
-                </div>
-              </el-card>
-            </el-col>
-          </el-row>
-        </div>
-      </el-main>
-    </el-container>
+  <div class="statistics-page">
+    <AppHeader mode="main" />
+
+    <main class="page-shell">
+      <div class="page-heading">
+        <h1>学习统计</h1>
+        <p>坚持每天学一点，数据会帮你看见进步</p>
+      </div>
+
+      <!-- 加载骨架 -->
+      <div v-if="loading" class="loading card">
+        <el-icon class="is-loading" :size="34"><Loading /></el-icon>
+        <p>正在整理学习数据…</p>
+      </div>
+
+      <template v-else>
+        <!-- ===== KPI 卡片 ===== -->
+        <section class="kpi-row">
+          <div class="kpi card">
+            <span class="kpi-icon" style="background: var(--color-primary-tint); color: var(--color-primary-deep)">
+              <el-icon :size="20"><Document /></el-icon>
+            </span>
+            <div class="kpi-body">
+              <div class="kpi-value">{{ statistics.totalWords }}</div>
+              <div class="kpi-label">累计学习单词</div>
+            </div>
+          </div>
+          <div class="kpi card">
+            <span class="kpi-icon" style="background: var(--color-primary-tint); color: var(--color-moss)">
+              <el-icon :size="20"><CircleCheckFilled /></el-icon>
+            </span>
+            <div class="kpi-body">
+              <div class="kpi-value" style="color: var(--color-moss)">{{ statistics.masteredWords }}</div>
+              <div class="kpi-label">已掌握</div>
+            </div>
+          </div>
+          <div class="kpi card">
+            <span class="kpi-icon" style="background: #fdf1e3; color: var(--color-amber)">
+              <el-icon :size="20"><Loading /></el-icon>
+            </span>
+            <div class="kpi-body">
+              <div class="kpi-value" style="color: var(--color-amber)">{{ statistics.learningWords }}</div>
+              <div class="kpi-label">学习中</div>
+            </div>
+          </div>
+          <div class="kpi card" :class="{ 'is-danger': dueCount > 0 }">
+            <span class="kpi-icon" :style="dueCount > 0
+              ? 'background:#fdecea; color:var(--color-rust)'
+              : 'background:#eaf1fb; color:var(--color-blue)'">
+              <el-icon :size="20"><AlarmClock /></el-icon>
+            </span>
+            <div class="kpi-body">
+              <div class="kpi-value" :style="dueCount > 0 ? 'color:var(--color-rust)' : 'color:var(--color-blue)'">{{ dueCount }}</div>
+              <div class="kpi-label">待复习</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== 图表行 1：掌握分布 + 14 天趋势 ===== -->
+        <section class="chart-row">
+          <div class="card chart-card">
+            <div class="card-title">
+              <h3>掌握情况</h3>
+              <p>已掌握 {{ statistics.masteredWords }} 词 · 学习中 {{ statistics.learningWords }} 词</p>
+            </div>
+            <BaseChart :option="masteryOption" height="280px" />
+          </div>
+          <div class="card chart-card">
+            <div class="card-title">
+              <h3>近 14 天学习趋势</h3>
+              <p>每天新学与复习的数量变化</p>
+            </div>
+            <BaseChart :option="trendOption" height="280px" />
+          </div>
+        </section>
+
+        <!-- ===== 图表行 2：30 天打卡热力图 ===== -->
+        <section class="card chart-card heat-card">
+          <div class="card-title heat-title">
+            <div>
+              <h3>近 30 天打卡热力图</h3>
+              <p>
+                <template v-if="overview.checkedInToday">今天已打卡 ✓，连续 {{ streak }} 天</template>
+                <template v-else>今天还没打卡，去学几个词吧</template>
+                · 累计打卡 {{ totalCheckIns }} 天
+              </p>
+            </div>
+            <div class="streak-chip">
+              <el-icon><Odometer /></el-icon> 连续 {{ streak }} 天
+            </div>
+          </div>
+          <BaseChart :option="calendarOption" height="190px" />
+        </section>
+
+        <!-- ===== 学习建议 ===== -->
+        <section class="tips">
+          <div class="tip-item" v-for="tip in tips" :key="tip.text">
+            <span class="tip-icon" :style="{ background: tip.bg, color: tip.color }">
+              <el-icon :size="16"><component :is="tip.icon" /></el-icon>
+            </span>
+            <p>{{ tip.text }}</p>
+          </div>
+        </section>
+      </template>
+    </main>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '@/store/user'
-import { getUserStatistics } from '@/api/learning'
+import {
+  Document, CircleCheckFilled, Loading, AlarmClock, Warning,
+  SuccessFilled, InfoFilled, Odometer, Bell
+} from '@element-plus/icons-vue'
+import AppHeader from '@/components/AppHeader.vue'
+import BaseChart from '@/components/BaseChart.vue'
+import { getUserStatistics, getLearningOverview } from '@/api/learning'
 
-const router = useRouter()
 const userStore = useUserStore()
 
-const statistics = ref({
-  totalWords: 0,
-  masteredWords: 0,
-  learningWords: 0,
-  dueReviews: 0
-})
 const loading = ref(true)
+const statistics = ref({ totalWords: 0, masteredWords: 0, learningWords: 0, dueReviews: 0 })
+const overview = ref({ checkedInToday: false, streakDays: 0, totalCheckIns: 0, calendar: [] })
 
-const masteryPercentage = computed(() => {
-  if (statistics.value.totalWords === 0) return 0
+const dueCount = computed(() => statistics.value.dueReviews || 0)
+const streak = computed(() => overview.value.streakDays || 0)
+const totalCheckIns = computed(() => overview.value.totalCheckIns || 0)
+const masteryRate = computed(() => {
+  if (!statistics.value.totalWords) return 0
   return Math.round((statistics.value.masteredWords / statistics.value.totalWords) * 100)
 })
 
-const learningPercentage = computed(() => {
-  if (statistics.value.totalWords === 0) return 0
-  return Math.round((statistics.value.learningWords / statistics.value.totalWords) * 100)
+const axisText = '#7a887f'
+const axisLine = '#e3e9e4'
+
+/* ---------- ECharts option：掌握环形图 ---------- */
+const masteryOption = computed(() => ({
+  color: ['#17a05c', '#e6a23c'],
+  tooltip: { trigger: 'item', formatter: '{b}: {c} 词 ({d}%)' },
+  legend: {
+    bottom: 0,
+    icon: 'circle',
+    itemWidth: 9,
+    itemHeight: 9,
+    textStyle: { color: '#5f6f66', fontSize: 12 }
+  },
+  series: [{
+    type: 'pie',
+    radius: ['62%', '82%'],
+    center: ['50%', '44%'],
+    avoidLabelOverlap: true,
+    itemStyle: { borderRadius: 8, borderColor: '#fff', borderWidth: 2 },
+    label: {
+      show: true,
+      position: 'center',
+      formatter: () => `{rate|${masteryRate.value}%}\n{cap|掌握率}`,
+      rich: {
+        rate: { fontSize: 30, fontWeight: 800, color: '#1c2b24', lineHeight: 38 },
+        cap: { fontSize: 12, color: '#93a098', lineHeight: 18 }
+      }
+    },
+    emphasis: { label: { show: true } },
+    data: [
+      { name: '已掌握', value: statistics.value.masteredWords },
+      { name: '学习中', value: statistics.value.learningWords }
+    ]
+  }]
+}))
+
+/* ---------- ECharts option：14 天学习趋势 ---------- */
+const trendOption = computed(() => {
+  const days = (overview.value.calendar || []).slice(-14)
+  const labels = days.map(d => d.date.slice(5))
+  const learned = days.map(d => d.learned || 0)
+  const reviewed = days.map(d => d.reviewed || 0)
+  return {
+    color: ['#17a05c', '#4a90e2'],
+    tooltip: { trigger: 'axis' },
+    legend: {
+      top: 0,
+      right: 0,
+      icon: 'circle',
+      itemWidth: 9,
+      itemHeight: 9,
+      textStyle: { color: '#5f6f66', fontSize: 12 },
+      data: ['新学', '复习']
+    },
+    grid: { left: 8, right: 8, top: 34, bottom: 4, containLabel: true },
+    xAxis: {
+      type: 'category',
+      data: labels,
+      axisLine: { lineStyle: { color: axisLine } },
+      axisTick: { show: false },
+      axisLabel: { color: axisText, fontSize: 11 }
+    },
+    yAxis: {
+      type: 'value',
+      minInterval: 1,
+      splitLine: { lineStyle: { color: '#eef2ee' } },
+      axisLabel: { color: axisText, fontSize: 11 }
+    },
+    series: [
+      {
+        name: '新学',
+        type: 'bar',
+        data: learned,
+        barMaxWidth: 14,
+        itemStyle: { borderRadius: [5, 5, 0, 0] }
+      },
+      {
+        name: '复习',
+        type: 'bar',
+        data: reviewed,
+        barMaxWidth: 14,
+        itemStyle: { borderRadius: [5, 5, 0, 0] }
+      }
+    ]
+  }
 })
 
-const progressColor = computed(() => {
-  const percentage = masteryPercentage.value
-  if (percentage < 30) return '#F56C6C'
-  if (percentage < 70) return '#E6A23C'
-  return '#67C23A'
+/* ---------- ECharts option：30 天日历热力图 ---------- */
+const calendarOption = computed(() => {
+  const entries = overview.value.calendar || []
+  const maxV = Math.max(1, ...entries.map(e => (e.learned || 0) + (e.reviewed || 0)))
+  return {
+    tooltip: {
+      formatter: (p) => {
+        const d = p.value[0]
+        const day = entries.find(e => e.date === d)
+        if (!day) return d
+        const amount = (day.learned || 0) + (day.reviewed || 0)
+        return `<b>${d}</b><br/>${day.checkedIn ? `打卡 ✓ · 新学 ${day.learned} · 复习 ${day.reviewed}` : '未打卡'}${amount ? '' : ''}`
+      }
+    },
+    visualMap: {
+      min: 0,
+      max: maxV,
+      show: false,
+      inRange: {
+        color: ['#f0f5f1', '#bfe8d2', '#6ecba0', '#1f9e63', '#0c6a3c']
+      }
+    },
+    calendar: {
+      top: 16,
+      left: 30,
+      right: 10,
+      cellSize: [20, 20],
+      range: [entries.length ? entries[0].date : '2026-01-01', entries.length ? entries[entries.length - 1].date : '2026-01-01'],
+      itemStyle: {
+        borderWidth: 3,
+        borderColor: '#ffffff',
+        borderRadius: 5
+      },
+      splitLine: { show: false },
+      dayLabel: { nameMap: ['日', '一', '二', '三', '四', '五', '六'], color: axisText, fontSize: 11 },
+      monthLabel: { color: axisText, fontSize: 11, position: 'start' },
+      yearLabel: { show: false }
+    },
+    series: [{
+      type: 'heatmap',
+      coordinateSystem: 'calendar',
+      data: entries.map(e => {
+        const amount = (e.learned || 0) + (e.reviewed || 0)
+        return [e.date, e.checkedIn ? Math.max(amount, 0.0001) : 0]
+      })
+    }]
+  }
 })
 
-const loadStatistics = async () => {
+/* ---------- 学习建议 ---------- */
+const tips = computed(() => {
+  const list = []
+  if (dueCount.value > 0) {
+    list.push({ icon: Warning, text: `有 ${dueCount.value} 个单词到了复习时间，趁热复习记忆更牢。`, bg: '#fdecea', color: 'var(--color-rust)' })
+  } else if (statistics.value.totalWords > 0) {
+    list.push({ icon: SuccessFilled, text: '当前没有待复习的单词，可以放心学习新词。', bg: 'var(--color-primary-tint)', color: 'var(--color-moss)' })
+  } else {
+    list.push({ icon: Bell, text: '还没有学习记录，从「开始学习」背下第一批单词吧。', bg: '#eaf1fb', color: 'var(--color-blue)' })
+  }
+  if (masteryRate.value === 0) {
+    list.push({ icon: InfoFilled, text: '掌握率会在你坚持复习后逐步提升，不用心急。', bg: '#fdf1e3', color: 'var(--color-amber)' })
+  } else if (masteryRate.value < 40) {
+    list.push({ icon: InfoFilled, text: '掌握率目前偏低，建议新学与复习保持 1:2 的节奏。', bg: '#fdf1e3', color: 'var(--color-amber)' })
+  } else if (masteryRate.value < 75) {
+    list.push({ icon: InfoFilled, text: '学习进展良好，继续保持每天打卡。', bg: '#eaf1fb', color: 'var(--color-blue)' })
+  } else {
+    list.push({ icon: SuccessFilled, text: '掌握率很高，表现优秀！可以挑战更难的生词。', bg: 'var(--color-primary-tint)', color: 'var(--color-moss)' })
+  }
+  return list
+})
+
+const load = async () => {
   try {
     loading.value = true
-    const data = await getUserStatistics(userStore.user.id)
-    statistics.value = data
-  } catch (error) {
-    ElMessage.error('加载统计数据失败')
-    console.error('Load statistics error:', error)
+    const [st, ov] = await Promise.all([
+      getUserStatistics(userStore.user.id),
+      getLearningOverview(userStore.user.id)
+    ])
+    statistics.value = st
+    overview.value = ov
+  } catch (e) {
+    console.error('统计页加载失败:', e)
   } finally {
     loading.value = false
   }
 }
 
-const goBack = () => {
-  router.push('/')
-}
-
-onMounted(() => {
-  loadStatistics()
-})
+onMounted(load)
 </script>
 
 <style scoped>
-.statistics-container {
-  min-height: 100vh;
-}
-
-.header {
-  background: white;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  display: flex;
-  align-items: center;
-  padding: 0 20px;
-}
-
-.header-content {
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.header-content h2 {
-  margin: 0;
-  color: #333;
-}
-
-.main-content {
-  padding: 20px;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.loading-container {
+.loading {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 400px;
-  color: #666;
+  gap: 12px;
+  min-height: 320px;
+  color: var(--color-ink-soft);
+}
+.loading p {
+  margin: 0;
+  font-size: 13px;
 }
 
-.stat-card {
+/* KPI */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
   margin-bottom: 20px;
-  border-radius: 12px;
 }
-
-.stat-content {
+.kpi {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 14px;
+  padding: 18px 20px;
+}
+.kpi-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.kpi-value {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--color-ink);
+}
+.kpi-label {
+  font-size: 13px;
+  color: var(--color-ink-soft);
+  margin-top: 2px;
 }
 
-.stat-icon {
-  font-size: 32px;
+/* 图表 */
+.chart-row {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 20px;
+  margin-bottom: 20px;
 }
-
-.stat-info {
-  flex: 1;
+.chart-card {
+  padding: 20px 22px;
 }
-
-.stat-value {
-  font-size: 28px;
-  font-weight: bold;
-  color: #333;
+.card-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
 }
-
-.stat-label {
-  font-size: 14px;
-  color: #666;
-  margin-top: 5px;
-}
-
-.progress-section {
-  margin-top: 20px;
-}
-
-.card-header {
-  font-weight: bold;
-  color: #333;
-}
-
-.progress-content {
-  padding: 20px 0;
-}
-
-.progress-text {
-  text-align: center;
-  margin-top: 15px;
+.card-title h3 {
+  margin: 0;
   font-size: 16px;
-  color: #666;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+.card-title p {
+  margin: 3px 0 0;
+  font-size: 12.5px;
+  color: var(--color-ink-faint);
 }
 
-.status-distribution {
-  padding: 20px 0;
+/* 热力卡 */
+.heat-card {
+  margin-bottom: 20px;
 }
-
-.status-item {
-  margin-bottom: 15px;
-  display: flex;
+.heat-title {
   align-items: center;
-  gap: 10px;
+  margin-bottom: 8px;
+}
+.streak-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--color-primary-tint);
+  color: var(--color-primary-deep);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
-.status-bar {
-  height: 8px;
-  border-radius: 4px;
-  transition: width 0.3s;
+/* 建议 */
+.tips {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
 }
-
-.status-bar.mastered {
-  background: #67C23A;
-}
-
-.status-bar.learning {
-  background: #E6A23C;
-}
-
-.tips-section {
-  margin-top: 20px;
-}
-
-.tips-content {
-  padding: 10px 0;
-}
-
 .tip-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 15px;
-  padding: 12px;
-  background: #f9f9f9;
-  border-radius: 8px;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+.tip-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.tip-item p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-ink);
+  line-height: 1.5;
 }
 
-.tip-item:last-child {
-  margin-bottom: 0;
+@media (max-width: 960px) {
+  .kpi-row { grid-template-columns: repeat(2, 1fr); }
+  .chart-row { grid-template-columns: 1fr; }
+  .tips { grid-template-columns: 1fr; }
 }
-</style>
-
-<style>
-.statistics-container{min-height:100vh;background:#edf3e4;background-image:radial-gradient(circle at 8% 10%,rgba(194,239,146,.42),transparent 24rem),radial-gradient(circle at 92% 86%,rgba(173,207,145,.38),transparent 28rem)}.statistics-container .header{height:72px;max-width:1120px;width:calc(100% - 40px);margin:22px auto 0;border-radius:18px;background:#fffdf8;box-shadow:0 8px 22px rgba(22,50,29,.12)}.statistics-container .header-content h2{font-family:var(--font-display);color:#102318;font-size:28px}.statistics-container .main-content{width:100%;max-width:1120px;margin:0 auto;padding:30px 20px 72px}.statistics-content{width:100%;margin:0 auto}.statistics-container .el-row{margin-bottom:20px}.statistics-container .el-card{height:100%;border:1px solid #d5ddcd;border-radius:20px;background:#fffdf8;box-shadow:0 12px 30px rgba(33,71,42,.09)}.statistics-container .el-card__header{padding:20px 26px;border-bottom-color:#e4e9df}.statistics-container .stat-card{margin:0}.statistics-container .stat-card .el-card__body{padding:22px}.statistics-container .stat-value{color:#173523!important;font-size:34px}.statistics-container .stat-label{color:#526b58!important;font-weight:700}.statistics-container .status-item{display:grid;grid-template-columns:minmax(80px,1fr) auto;gap:12px}.statistics-container .status-bar{min-width:8px}.statistics-container .tip-item{background:#f3f6ee;color:#173523}.statistics-container .el-progress-bar__outer{background:#e6ecdf}
-@media(max-width:760px){.statistics-container .el-col{width:100%;max-width:100%;flex:0 0 100%;margin-bottom:14px}}
 </style>

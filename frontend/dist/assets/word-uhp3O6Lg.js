@@ -1,1 +1,0 @@
-import{r}from"./_plugin-vue_export-helper-Bl9TXx-i.js";const t=()=>r({url:"/words",method:"get"}),o=e=>r({url:"/words/search",method:"get",params:{keyword:e}}),a=e=>r({url:`/words/${e}/examples`,method:"get"});export{a,t as g,o as s};

@@ -74,3 +74,11 @@ export const getUserStatistics = (userId) => {
     method: 'get'
   })
 }
+
+// 打卡 / 每日学习总览（首页打卡卡 + 统计页热力图共用）
+export const getLearningOverview = (userId) => {
+  return request({
+    url: `/learning/overview/${userId}`,
+    method: 'get'
+  })
+}

@@ -5,6 +5,33 @@ export const getSystemStatistics = () => {
   return request({ url: '/admin/statistics', method: 'get' })
 }
 
+// ---------- 数据可视化看板 ----------
+export const getAdminDashboard = () => {
+  return request({ url: '/admin/dashboard', method: 'get' })
+}
+
+// ---------- 学生用户学习详情 ----------
+export const getAdminUserDetail = (userId) => {
+  return request({ url: `/admin/users/${userId}/detail`, method: 'get' })
+}
+
+// ---------- 系统公告管理 ----------
+export const getAdminAnnouncements = () => {
+  return request({ url: '/admin/announcements', method: 'get' })
+}
+
+export const createAdminAnnouncement = (data) => {
+  return request({ url: '/admin/announcements', method: 'post', data })
+}
+
+export const updateAdminAnnouncement = (id, data) => {
+  return request({ url: `/admin/announcements/${id}`, method: 'put', data })
+}
+
+export const deleteAdminAnnouncement = (id) => {
+  return request({ url: `/admin/announcements/${id}`, method: 'delete' })
+}
+
 // ---------- 用户管理 ----------
 export const getAllUsers = () => {
   return request({ url: '/admin/users', method: 'get' })

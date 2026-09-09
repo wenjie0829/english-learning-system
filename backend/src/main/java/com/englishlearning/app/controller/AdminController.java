@@ -1,10 +1,12 @@
 package com.englishlearning.app.controller;
 
+import com.englishlearning.app.entity.Announcement;
 import com.englishlearning.app.entity.ExampleSentence;
 import com.englishlearning.app.entity.User;
 import com.englishlearning.app.entity.Word;
 import com.englishlearning.app.security.UserPrincipal;
 import com.englishlearning.app.service.AdminService;
+import com.englishlearning.app.service.AnnouncementService;
 import com.englishlearning.app.service.WordService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -29,10 +31,13 @@ public class AdminController {
 
     private final AdminService adminService;
     private final WordService wordService;
+    private final AnnouncementService announcementService;
 
-    public AdminController(AdminService adminService, WordService wordService) {
+    public AdminController(AdminService adminService, WordService wordService,
+                           AnnouncementService announcementService) {
         this.adminService = adminService;
         this.wordService = wordService;
+        this.announcementService = announcementService;
     }
 
     private Long getCurrentAdminId() {
@@ -140,5 +145,51 @@ public class AdminController {
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
+    }
+
+    // ================== 数据可视化看板 ==================
+
+    @GetMapping("/dashboard")
+    public ResponseEntity<Map<String, Object>> getDashboardOverview() {
+        return ResponseEntity.ok(adminService.getDashboardOverview());
+    }
+
+    // ================== 用户学习详情 ==================
+
+    @GetMapping("/users/{id}/detail")
+    public ResponseEntity<Map<String, Object>> getUserDetail(@PathVariable Long id) {
+        return ResponseEntity.ok(adminService.getUserDetail(id));
+    }
+
+    // ================== 系统公告管理 ==================
+
+    @GetMapping("/announcements")
+    public ResponseEntity<List<Announcement>> getAllAnnouncements() {
+        return ResponseEntity.ok(announcementService.getAllAnnouncements());
+    }
+
+    @PostMapping("/announcements")
+    public ResponseEntity<Announcement> createAnnouncement(@RequestBody Map<String, Object> body) {
+        String title = body.get("title") != null ? body.get("title").toString() : null;
+        String content = body.get("content") != null ? body.get("content").toString() : null;
+        Boolean enabled = body.get("enabled") != null ? Boolean.parseBoolean(body.get("enabled").toString()) : null;
+        if (title == null || title.trim().isEmpty()) {
+            throw new RuntimeException("请输入公告标题");
+        }
+        return ResponseEntity.ok(announcementService.createAnnouncement(title.trim(), content, enabled));
+    }
+
+    @PutMapping("/announcements/{id}")
+    public ResponseEntity<Announcement> updateAnnouncement(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        String title = body.get("title") != null ? body.get("title").toString() : null;
+        String content = body.get("content") != null ? body.get("content").toString() : null;
+        Boolean enabled = body.get("enabled") != null ? Boolean.parseBoolean(body.get("enabled").toString()) : null;
+        return ResponseEntity.ok(announcementService.updateAnnouncement(id, title, content, enabled));
+    }
+
+    @DeleteMapping("/announcements/{id}")
+    public ResponseEntity<Void> deleteAnnouncement(@PathVariable Long id) {
+        announcementService.deleteAnnouncement(id);
+        return ResponseEntity.ok().build();
     }
 }

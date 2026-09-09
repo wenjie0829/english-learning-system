@@ -9,6 +9,7 @@ com\englishlearning\app\entity\WordBook.class
 com\englishlearning\app\dto\ImportExampleItem.class
 com\englishlearning\app\security\SecurityConfig.class
 com\englishlearning\app\service\WordService.class
+com\englishlearning\app\controller\AnnouncementController.class
 com\englishlearning\app\dto\ImportWordItem.class
 com\englishlearning\app\EnglishLearningApplication.class
 com\englishlearning\app\entity\LearningRecord.class
@@ -21,8 +22,10 @@ com\englishlearning\app\entity\WrongWord.class
 com\englishlearning\app\security\UserPrincipal.class
 com\englishlearning\app\util\EbbinghausUtil.class
 com\englishlearning\app\entity\ExampleSentence.class
+com\englishlearning\app\service\AiExampleGenerationService.class
 com\englishlearning\app\service\LearningService.class
 com\englishlearning\app\security\JwtAuthenticationFilter.class
+com\englishlearning\app\service\AnnouncementService.class
 com\englishlearning\app\util\PdfWordParser.class
 com\englishlearning\app\entity\User$UserRole.class
 com\englishlearning\app\controller\AuthController.class
@@ -33,6 +36,7 @@ com\englishlearning\app\repository\ExampleSentenceRepository.class
 com\englishlearning\app\entity\WordBookWord.class
 com\englishlearning\app\security\JwtTokenProvider.class
 com\englishlearning\app\service\AIService$AIRequest.class
+com\englishlearning\app\repository\LearningDailyStatisticsRepository.class
 com\englishlearning\app\service\PdfImportService.class
 com\englishlearning\app\controller\AIController.class
 com\englishlearning\app\service\AiWordExtractionService.class
@@ -41,15 +45,20 @@ com\englishlearning\app\exception\GlobalExceptionHandler.class
 com\englishlearning\app\service\AiWordExtractionService$AiExtractionResult.class
 com\englishlearning\app\service\AIService$Message.class
 com\englishlearning\app\controller\AdminController.class
+com\englishlearning\app\service\LearningService$DailyEntry.class
 com\englishlearning\app\entity\LearningRecord$LearningStatus.class
 com\englishlearning\app\dto\LoginRequest.class
 com\englishlearning\app\dto\RegisterRequest.class
 com\englishlearning\app\entity\LearningDailyStatistics.class
+com\englishlearning\app\service\LearningService$DailyOverview.class
 com\englishlearning\app\controller\WordBookController.class
+com\englishlearning\app\entity\Announcement.class
 com\englishlearning\app\entity\Word.class
 com\englishlearning\app\repository\LearningRecordRepository.class
 com\englishlearning\app\service\AuthService.class
 com\englishlearning\app\repository\UserRepository.class
+com\englishlearning\app\repository\AnnouncementRepository.class
+com\englishlearning\app\config\WebConfig$1.class
 com\englishlearning\app\security\CustomUserDetailsService.class
 com\englishlearning\app\repository\WordRepository.class
 com\englishlearning\app\entity\Favorite.class

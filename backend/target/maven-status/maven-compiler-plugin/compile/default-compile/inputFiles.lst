@@ -1,11 +1,14 @@
 C:\Users\35356\Desktop\english-learning-system\backend\src\main\java\com\englishlearning\app\repository\WrongWordRepository.java
 C:\Users\35356\Desktop\english-learning-system\backend\src\main\java\com\englishlearning\app\service\AuthService.java
+C:\Users\35356\Desktop\english-learning-system\backend\src\main\java\com\englishlearning\app\entity\Announcement.java
 C:\Users\35356\Desktop\english-learning-system\backend\src\main\java\com\englishlearning\app\entity\ExampleSentence.java
 C:\Users\35356\Desktop\english-learning-system\backend\src\main\java\com\englishlearning\app\controller\LearningController.java
 C:\Users\35356\Desktop\english-learning-system\backend\src\main\java\com\englishlearning\app\repository\WordBookRepository.java
+C:\Users\35356\Desktop\english-learning-system\backend\src\main\java\com\englishlearning\app\service\AiExampleGenerationService.java
 C:\Users\35356\Desktop\english-learning-system\backend\src\main\java\com\englishlearning\app\service\WordBookService.java
 C:\Users\35356\Desktop\english-learning-system\backend\src\main\java\com\englishlearning\app\controller\WordBookController.java
 C:\Users\35356\Desktop\english-learning-system\backend\src\main\java\com\englishlearning\app\entity\WordBook.java
+C:\Users\35356\Desktop\english-learning-system\backend\src\main\java\com\englishlearning\app\controller\AnnouncementController.java
 C:\Users\35356\Desktop\english-learning-system\backend\src\main\java\com\englishlearning\app\service\PdfImportService.java
 C:\Users\35356\Desktop\english-learning-system\backend\src\main\java\com\englishlearning\app\util\EbbinghausUtil.java
 C:\Users\35356\Desktop\english-learning-system\backend\src\main\java\com\englishlearning\app\entity\WrongWord.java
@@ -14,8 +17,10 @@ C:\Users\35356\Desktop\english-learning-system\backend\src\main\java\com\english
 C:\Users\35356\Desktop\english-learning-system\backend\src\main\java\com\englishlearning\app\entity\User.java
 C:\Users\35356\Desktop\english-learning-system\backend\src\main\java\com\englishlearning\app\util\PdfWordParser.java
 C:\Users\35356\Desktop\english-learning-system\backend\src\main\java\com\englishlearning\app\dto\JwtResponse.java
+C:\Users\35356\Desktop\english-learning-system\backend\src\main\java\com\englishlearning\app\service\AnnouncementService.java
 C:\Users\35356\Desktop\english-learning-system\backend\src\main\java\com\englishlearning\app\dto\LoginRequest.java
 C:\Users\35356\Desktop\english-learning-system\backend\src\main\java\com\englishlearning\app\controller\AdminController.java
+C:\Users\35356\Desktop\english-learning-system\backend\src\main\java\com\englishlearning\app\repository\AnnouncementRepository.java
 C:\Users\35356\Desktop\english-learning-system\backend\src\main\java\com\englishlearning\app\security\JwtAuthenticationFilter.java
 C:\Users\35356\Desktop\english-learning-system\backend\src\main\java\com\englishlearning\app\security\JwtTokenProvider.java
 C:\Users\35356\Desktop\english-learning-system\backend\src\main\java\com\englishlearning\app\util\DocumentTextExtractor.java
@@ -39,6 +44,7 @@ C:\Users\35356\Desktop\english-learning-system\backend\src\main\java\com\english
 C:\Users\35356\Desktop\english-learning-system\backend\src\main\java\com\englishlearning\app\exception\GlobalExceptionHandler.java
 C:\Users\35356\Desktop\english-learning-system\backend\src\main\java\com\englishlearning\app\dto\ImportExampleItem.java
 C:\Users\35356\Desktop\english-learning-system\backend\src\main\java\com\englishlearning\app\repository\WordRepository.java
+C:\Users\35356\Desktop\english-learning-system\backend\src\main\java\com\englishlearning\app\repository\LearningDailyStatisticsRepository.java
 C:\Users\35356\Desktop\english-learning-system\backend\src\main\java\com\englishlearning\app\repository\WordBookWordRepository.java
 C:\Users\35356\Desktop\english-learning-system\backend\src\main\java\com\englishlearning\app\config\WebConfig.java
 C:\Users\35356\Desktop\english-learning-system\backend\src\main\java\com\englishlearning\app\service\LearningService.java

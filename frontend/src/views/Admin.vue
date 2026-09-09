@@ -35,6 +35,14 @@
           <el-icon :size="17"><Bell /></el-icon>
           <span>系统公告</span>
         </button>
+        <button
+          class="side-item"
+          :class="{ active: active === 'words' }"
+          @click="openWords"
+        >
+          <el-icon :size="17"><Notebook /></el-icon>
+          <span>单词库管理</span>
+        </button>
       </nav>
 
       <div class="side-foot">
@@ -225,6 +233,123 @@
                   @click="onToggleStatus(row)"
                 >{{ row.enabled ? '封禁' : '解封' }}</el-button>
                 <el-button size="small" type="danger" text @click="onDeleteUser(row)">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </section>
+
+        <!-- ==================== 单词库管理 ==================== -->
+        <section v-else-if="active === 'words'" class="panel-view card">
+          <div class="panel-head">
+            <div>
+              <h3>单词库管理</h3>
+              <p class="panel-sub">共 {{ wordTotal }} 个单词，可新增、编辑、删除，批量生成例句或从 PDF/AI 导入</p>
+            </div>
+            <div class="word-tools">
+              <el-button round @click="openImportDialog('pdf')">
+                <el-icon><Document /></el-icon> PDF 导入
+              </el-button>
+              <el-button round @click="openImportDialog('ai')">
+                <el-icon><MagicStick /></el-icon> AI 智能导入
+              </el-button>
+              <el-button type="primary" round @click="openWordDialog(null)">
+                <el-icon><Plus /></el-icon> 新增单词
+              </el-button>
+            </div>
+          </div>
+
+          <div class="word-toolbar">
+            <el-input
+              v-model="wordSearch"
+              placeholder="按单词或释义搜索…"
+              clearable
+              style="width: 280px"
+              :prefix-icon="Search"
+              @input="onWordSearch"
+            />
+            <el-select
+              v-model="wordDifficulty"
+              placeholder="难度筛选"
+              clearable
+              style="width: 130px"
+              @change="loadWords(true)"
+            >
+              <el-option label="简单" value="EASY" />
+              <el-option label="中等" value="MEDIUM" />
+              <el-option label="困难" value="HARD" />
+            </el-select>
+            <div class="word-toolbar-right">
+              <span v-if="selectedWords.length" class="word-selected-tip">
+                已选 {{ selectedWords.length }} 个
+              </span>
+              <el-button
+                v-if="selectedWords.length"
+                type="success"
+                round
+                @click="openBatchAiDialog"
+              >
+                <el-icon><MagicStick /></el-icon> AI 生成例句
+              </el-button>
+              <el-button
+                v-if="selectedWords.length"
+                type="danger"
+                round
+                @click="onBatchDeleteWords"
+              >
+                <el-icon><Delete /></el-icon> 批量删除
+              </el-button>
+            </div>
+          </div>
+
+          <el-table
+            :data="filteredWords"
+            v-loading="wordsLoading"
+            style="width: 100%"
+            @selection-change="onWordSelectionChange"
+            row-key="id"
+          >
+            <el-table-column type="selection" width="50" :selectable="() => true" />
+            <el-table-column prop="id" label="ID" width="70" />
+            <el-table-column label="单词" min-width="180">
+              <template #default="{ row }">
+                <div class="word-cell">
+                  <strong>{{ row.word }}</strong>
+                  <span class="word-phonetic" v-if="row.phonetic">{{ row.phonetic }}</span>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="词性 / 难度" width="170">
+              <template #default="{ row }">
+                <div class="word-tag-row">
+                  <el-tag v-if="row.partOfSpeech" size="small" effect="plain" round>
+                    {{ row.partOfSpeech }}
+                  </el-tag>
+                  <span class="word-class" :class="'lv-' + (row.difficultyLevel || 'MEDIUM').toLowerCase()">
+                    {{ difficultyLabel(row.difficultyLevel) }}
+                  </span>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="释义" min-width="240" show-overflow-tooltip>
+              <template #default="{ row }">
+                <span class="word-def">{{ row.definition || row.aiDefinition || '—' }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="例句" width="100">
+              <template #default="{ row }">
+                <el-button size="small" text type="primary" @click="openExamplesDrawer(row)">
+                  <el-icon><ChatLineRound /></el-icon>
+                  管理 ({{ row.exampleCount || 0 }})
+                </el-button>
+              </template>
+            </el-table-column>
+            <el-table-column label="添加时间" width="150">
+              <template #default="{ row }">{{ fmtDate(row.createdAt) }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="180" fixed="right">
+              <template #default="{ row }">
+                <el-button size="small" text @click="openWordDialog(row)">编辑</el-button>
+                <el-button size="small" type="danger" text @click="onDeleteWord(row)">删除</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -446,6 +571,239 @@
         </el-tabs>
       </div>
     </el-drawer>
+  <!-- ============ 单词编辑弹窗 ============ -->
+    <el-dialog
+      v-model="wordDialogVisible"
+      :title="wordForm.id ? '编辑单词' : '新增单词'"
+      width="620px"
+      align-center
+      :close-on-click-modal="false"
+    >
+      <el-form :model="wordForm" label-position="top">
+        <div class="word-form-grid">
+          <el-form-item label="单词（必填）" required>
+            <el-input v-model="wordForm.word" maxlength="100" show-word-limit />
+          </el-form-item>
+          <el-form-item label="音标">
+            <el-input v-model="wordForm.phonetic" placeholder="/əbˈstrækt/" />
+          </el-form-item>
+        </div>
+        <div class="word-form-grid">
+          <el-form-item label="词性">
+            <el-select v-model="wordForm.partOfSpeech" placeholder="如 n. / v." clearable filterable allow-create>
+              <el-option v-for="p in POS_OPTIONS" :key="p" :label="p" :value="p" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="难度">
+            <el-radio-group v-model="wordForm.difficultyLevel">
+              <el-radio-button label="EASY">简单</el-radio-button>
+              <el-radio-button label="MEDIUM">中等</el-radio-button>
+              <el-radio-button label="HARD">困难</el-radio-button>
+            </el-radio-group>
+          </el-form-item>
+        </div>
+        <el-form-item label="基本释义">
+          <el-input v-model="wordForm.definition" type="textarea" :rows="3" placeholder="可由 AI 生成或人工填写" />
+        </el-form-item>
+        <el-form-item label="AI 释义（可选）">
+          <el-input v-model="wordForm.aiDefinition" type="textarea" :rows="2" />
+        </el-form-item>
+        <el-form-item label="发音音频地址（可选）">
+          <el-input v-model="wordForm.audioUrl" placeholder="可粘贴音频 URL" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button round @click="wordDialogVisible = false">取消</el-button>
+        <el-button type="primary" round :loading="wordSaving" @click="saveWord">
+          {{ wordForm.id ? '保存修改' : '创建单词' }}
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <!-- ============ 例句管理抽屉 ============ -->
+    <el-drawer
+      v-model="examplesVisible"
+      :title="examplesWord ? examplesWord.word + ' · 例句管理' : '例句管理'"
+      size="560px"
+      class="detail-drawer"
+    >
+      <div v-if="examplesWord" v-loading="examplesLoading" class="drawer-body">
+        <div class="examples-head">
+          <div class="examples-hero">
+            <div class="hero-avatar" style="width:42px;height:42px;font-size:18px;border-radius:12px;">
+              {{ examplesWord.word.charAt(0).toUpperCase() }}
+            </div>
+            <div>
+              <div class="hero-name">
+                {{ examplesWord.word }}
+                <span class="word-phonetic" v-if="examplesWord.phonetic">{{ examplesWord.phonetic }}</span>
+              </div>
+              <div class="hero-meta">
+                当前共 {{ examples.length }} 条例句
+              </div>
+            </div>
+          </div>
+          <el-button round type="success" :loading="examplesAiLoading" @click="generateAiExamplesForCurrent">
+            <el-icon><MagicStick /></el-icon> AI 生成 3 条
+          </el-button>
+        </div>
+
+        <div class="examples-add">
+          <h4>新增例句</h4>
+          <el-input v-model="newExample.sentence" placeholder="英文例句…" :rows="2" type="textarea" />
+          <el-input v-model="newExample.translation" placeholder="中文翻译（可选）" :rows="2" type="textarea" />
+          <div style="text-align:right;margin-top:8px;">
+            <el-button type="primary" round :loading="exampleAdding" @click="addOneExample">添加例句</el-button>
+          </div>
+        </div>
+
+        <div class="examples-list">
+          <h4>例句列表</h4>
+          <div v-if="examples.length" class="ex-rows">
+            <div v-for="ex in examples" :key="ex.id" class="ex-row">
+              <div class="ex-text">{{ ex.sentence }}</div>
+              <div v-if="ex.translation" class="ex-trans">{{ ex.translation }}</div>
+              <div class="ex-foot">
+                <el-tag v-if="ex.isOriginal" size="small" effect="plain">AI 生成</el-tag>
+                <el-button size="small" type="danger" text @click="deleteExample(ex)">删除</el-button>
+              </div>
+            </div>
+          </div>
+          <el-empty v-else description="暂无例句，可手动添加或用 AI 生成" :image-size="80" />
+        </div>
+      </div>
+    </el-drawer>
+
+    <!-- ============ 批量 AI 例句生成弹窗 ============ -->
+    <el-dialog v-model="batchAiVisible" title="批量生成 AI 例句" width="520px" align-center>
+      <p class="batch-ai-tip">
+        将为以下 <strong>{{ batchAiIds.length }}</strong> 个单词各生成 <strong>{{ batchAiCount }}</strong> 条 AI 例句。
+        该过程会调用 DeepSeek，可能耗时数十秒。
+      </p>
+      <div class="batch-ai-list">
+        <span v-for="w in batchAiWords" :key="w.id" class="batch-ai-chip">{{ w.word }}</span>
+      </div>
+      <el-form label-position="top">
+        <el-form-item label="每个单词生成条数（1~5）">
+          <el-input-number v-model="batchAiCount" :min="1" :max="5" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button round @click="batchAiVisible = false">取消</el-button>
+        <el-button type="primary" round :loading="batchAiRunning" @click="runBatchAi">开始生成</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- ============ PDF / AI 导入弹窗 ============ -->
+    <el-dialog
+      v-model="importDialogVisible"
+      :title="importMode === 'pdf' ? 'PDF 单词书导入' : 'AI 智能导入'"
+      width="780px"
+      align-center
+      :close-on-click-modal="false"
+    >
+      <el-tabs v-if="importMode === 'ai'" v-model="importAiTab">
+        <el-tab-pane label="上传文件" name="file">
+          <el-upload
+            ref="aiUploadRef"
+            :auto-upload="false"
+            :limit="1"
+            accept=".pdf,.doc,.docx,.txt"
+            :on-change="onAiFileChange"
+          >
+            <el-button round>
+              <el-icon><Upload /></el-icon> 选择文件
+            </el-button>
+            <template #tip>
+              <div class="el-upload__tip">支持 PDF / Word / TXT，AI 会自动提取词汇、释义、词性</div>
+            </template>
+          </el-upload>
+        </el-tab-pane>
+        <el-tab-pane label="粘贴文本" name="text">
+          <el-input
+            v-model="importText"
+            type="textarea"
+            :rows="6"
+            placeholder="粘贴单词表文本，每行一个或词：释义"
+          />
+          <div style="margin-top:8px;">
+            <el-button round type="primary" :loading="importParsing" @click="parseAiText">
+              <el-icon><MagicStick /></el-icon> AI 解析文本
+            </el-button>
+          </div>
+        </el-tab-pane>
+      </el-tabs>
+      <div v-else class="pdf-uploader">
+        <el-upload
+          ref="pdfUploadRef"
+          :auto-upload="false"
+          :limit="1"
+          accept=".pdf"
+          :on-change="onPdfFileChange"
+        >
+          <el-button round>
+            <el-icon><Upload /></el-icon> 选择 PDF
+          </el-button>
+          <template #tip>
+            <div class="el-upload__tip">PDF 单词书，正则提取单词和释义</div>
+          </template>
+        </el-upload>
+      </div>
+
+      <div v-if="importParsing" class="import-progress">
+        <el-icon class="is-loading"><Loading /></el-icon>
+        <span>正在解析，可能需要 30 秒到 2 分钟，请耐心等待…</span>
+      </div>
+
+      <div v-if="importItems.length" class="import-preview">
+        <div class="import-preview-head">
+          <h4>解析预览（可勾选要导入的）</h4>
+          <div>
+            <el-checkbox v-model="selectAllImport" @change="toggleSelectAllImport">
+              全选（{{ importItems.length }}）
+            </el-checkbox>
+            <span class="import-stat">已选 {{ selectedImportItems.length }}</span>
+          </div>
+        </div>
+        <el-table
+          :data="importItems"
+          max-height="360"
+          @selection-change="onImportSelectionChange"
+          row-key="word"
+        >
+          <el-table-column type="selection" width="50" />
+          <el-table-column label="单词" width="130">
+            <template #default="{ row }">
+              <strong>{{ row.word }}</strong>
+              <el-tag v-if="row.alreadyExists" size="small" type="warning" effect="plain" style="margin-left:6px;">已存在</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="音标" width="110">
+            <template #default="{ row }">{{ row.phonetic || '—' }}</template>
+          </el-table-column>
+          <el-table-column label="词性" width="90">
+            <template #default="{ row }">{{ row.partOfSpeech || '—' }}</template>
+          </el-table-column>
+          <el-table-column label="释义" min-width="180" show-overflow-tooltip>
+            <template #default="{ row }">{{ row.definition }}</template>
+          </el-table-column>
+          <el-table-column label="附例句" width="80">
+            <template #default="{ row }">{{ row.examples?.length || 0 }}</template>
+          </el-table-column>
+        </el-table>
+      </div>
+
+      <template #footer>
+        <el-button round @click="closeImportDialog">取消</el-button>
+        <el-button
+          type="primary"
+          round
+          :loading="importConfirming"
+          :disabled="!selectedImportItems.length"
+          @click="confirmImport"
+        >导入 {{ selectedImportItems.length }} 个</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -465,12 +823,29 @@ import {
   getAdminAnnouncements,
   createAdminAnnouncement,
   updateAdminAnnouncement,
-  deleteAdminAnnouncement
+  deleteAdminAnnouncement,
+  getAdminWords,
+  createWord,
+  updateWord,
+  deleteWord,
+  batchDeleteWords,
+  getExampleSentences,
+  addExampleSentence,
+  deleteExampleSentence,
+  generateExamplesForWords,
+  parsePdfImport,
+  confirmPdfImport,
+  parseAiFileImport,
+  parseAiTextImport
 } from '@/api/admin'
 import {
   DataAnalysis, User, Bell, Reading, Collection, Refresh, TrendCharts,
-  CircleCheckFilled, HomeFilled, SwitchButton, Plus
+  CircleCheckFilled, HomeFilled, SwitchButton, Plus,
+  Notebook, Document, MagicStick, Search, Delete, ChatLineRound,
+  Upload, Loading
 } from '@element-plus/icons-vue'
+
+const POS_OPTIONS = ['n.', 'v.', 'adj.', 'adv.', 'prep.', 'conj.', 'pron.', 'int.']
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -480,7 +855,8 @@ const active = ref('dashboard')
 const pageTitle = computed(() => ({
   dashboard: '数据看板',
   users: '用户管理',
-  announcements: '系统公告'
+  announcements: '系统公告',
+  words: '单词库管理'
 }[active.value]))
 
 const avatarText = computed(() => {
@@ -867,6 +1243,385 @@ const onDeleteAnnouncement = async (row) => {
 onMounted(() => {
   loadDashboard()
 })
+
+// ==================== 单词库管理 ====================
+const words = ref([])
+const wordsLoading = ref(false)
+const wordsLoaded = ref(false)
+const wordSearch = ref('')
+const wordDifficulty = ref('')
+const wordTotal = computed(() => words.value.length)
+const selectedWords = ref([])
+
+// 客户端再做一次过滤：搜索框匹配单词或释义（命中即显示）
+const filteredWords = computed(() => {
+  const kw = wordSearch.value.trim().toLowerCase()
+  if (!kw) return words.value
+  return words.value.filter((w) =>
+    (w.word || '').toLowerCase().includes(kw) ||
+    (w.definition || '').toLowerCase().includes(kw) ||
+    (w.aiDefinition || '').toLowerCase().includes(kw)
+  )
+})
+
+const openWords = async () => {
+  active.value = 'words'
+  if (!wordsLoaded.value) await loadWords(true)
+}
+
+const loadWords = async (force) => {
+  wordsLoading.value = true
+  try {
+    const list = await getAdminWords()
+    words.value = list || []
+    wordsLoaded.value = true
+    if (force) selectedWords.value = []
+  } catch (e) {
+    console.error(e)
+    ElMessage.error('单词列表加载失败')
+  } finally {
+    wordsLoading.value = false
+  }
+}
+
+const onWordSearch = () => {
+  // 客户端过滤，无需请求
+}
+
+const onWordSelectionChange = (rows) => {
+  selectedWords.value = rows
+}
+
+const difficultyLabel = (lv) => ({ EASY: '简单', MEDIUM: '中等', HARD: '困难' }[lv] || lv || '中等')
+
+// ---------- 单词新增 / 编辑 ----------
+const wordDialogVisible = ref(false)
+const wordSaving = ref(false)
+const emptyWord = () => ({
+  id: null, word: '', phonetic: '', partOfSpeech: '', definition: '',
+  aiDefinition: '', difficultyLevel: 'MEDIUM', audioUrl: ''
+})
+const wordForm = reactive(emptyWord())
+
+const openWordDialog = (row) => {
+  if (row) {
+    Object.assign(wordForm, {
+      id: row.id,
+      word: row.word || '',
+      phonetic: row.phonetic || '',
+      partOfSpeech: row.partOfSpeech || '',
+      definition: row.definition || '',
+      aiDefinition: row.aiDefinition || '',
+      difficultyLevel: row.difficultyLevel || 'MEDIUM',
+      audioUrl: row.audioUrl || ''
+    })
+  } else {
+    Object.assign(wordForm, emptyWord())
+  }
+  wordDialogVisible.value = true
+}
+
+const saveWord = async () => {
+  if (!wordForm.word.trim()) {
+    ElMessage.warning('请填写单词')
+    return
+  }
+  wordSaving.value = true
+  const payload = {
+    word: wordForm.word.trim(),
+    phonetic: wordForm.phonetic.trim() || null,
+    partOfSpeech: wordForm.partOfSpeech || null,
+    definition: wordForm.definition || null,
+    aiDefinition: wordForm.aiDefinition || null,
+    difficultyLevel: wordForm.difficultyLevel,
+    audioUrl: wordForm.audioUrl.trim() || null
+  }
+  try {
+    if (wordForm.id) {
+      await updateWord(wordForm.id, payload)
+      ElMessage.success('单词已更新')
+    } else {
+      await createWord(payload)
+      ElMessage.success('单词已创建')
+    }
+    wordDialogVisible.value = false
+    loadWords(true)
+  } catch (e) {
+    console.error(e)
+    ElMessage.error('保存失败：' + (e?.response?.data?.message || e.message))
+  } finally {
+    wordSaving.value = false
+  }
+}
+
+const onDeleteWord = async (row) => {
+  try {
+    await ElMessageBox.confirm(
+      `确认删除单词「${row.word}」？关联的例句会一并删除。`,
+      '请确认',
+      { type: 'warning', confirmButtonText: '删除', confirmButtonClass: 'el-button--danger' }
+    )
+  } catch { return }
+  try {
+    await deleteWord(row.id)
+    ElMessage.success('已删除')
+    loadWords(true)
+  } catch (e) {
+    console.error(e)
+    ElMessage.error('删除失败')
+  }
+}
+
+const onBatchDeleteWords = async () => {
+  const ids = selectedWords.value.map((w) => w.id)
+  if (!ids.length) return
+  try {
+    await ElMessageBox.confirm(
+      `将删除选中的 ${ids.length} 个单词及其例句，此操作不可恢复。`,
+      '请确认',
+      { type: 'warning', confirmButtonText: '删除', confirmButtonClass: 'el-button--danger' }
+    )
+  } catch { return }
+  try {
+    await batchDeleteWords(ids)
+    ElMessage.success(`已删除 ${ids.length} 个单词`)
+    loadWords(true)
+  } catch (e) {
+    console.error(e)
+    ElMessage.error('批量删除失败')
+  }
+}
+
+// ---------- 例句管理 ----------
+const examplesVisible = ref(false)
+const examplesLoading = ref(false)
+const examplesAiLoading = ref(false)
+const examplesWord = ref(null)
+const examples = ref([])
+const exampleAdding = ref(false)
+const newExample = reactive({ sentence: '', translation: '' })
+
+const openExamplesDrawer = async (row) => {
+  examplesWord.value = row
+  examplesVisible.value = true
+  await loadExamples(row.id)
+}
+
+const loadExamples = async (wordId) => {
+  examplesLoading.value = true
+  try {
+    examples.value = await getExampleSentences(wordId)
+  } catch (e) {
+    console.error(e)
+    ElMessage.error('例句加载失败')
+  } finally {
+    examplesLoading.value = false
+  }
+}
+
+const addOneExample = async () => {
+  if (!newExample.sentence.trim()) {
+    ElMessage.warning('请填写例句')
+    return
+  }
+  exampleAdding.value = true
+  try {
+    await addExampleSentence(examplesWord.value.id, {
+      sentence: newExample.sentence.trim(),
+      translation: newExample.translation.trim() || null
+    })
+    ElMessage.success('例句已添加')
+    newExample.sentence = ''
+    newExample.translation = ''
+    await loadExamples(examplesWord.value.id)
+    loadWords(false)
+  } catch (e) {
+    console.error(e)
+    ElMessage.error('添加失败')
+  } finally {
+    exampleAdding.value = false
+  }
+}
+
+const deleteExample = async (ex) => {
+  try {
+    await ElMessageBox.confirm('确认删除该例句？', '请确认', {
+      type: 'warning',
+      confirmButtonText: '删除',
+      confirmButtonClass: 'el-button--danger'
+    })
+  } catch { return }
+  try {
+    await deleteExampleSentence(ex.id)
+    ElMessage.success('已删除')
+    await loadExamples(examplesWord.value.id)
+    loadWords(false)
+  } catch (e) {
+    console.error(e)
+    ElMessage.error('删除失败')
+  }
+}
+
+const generateAiExamplesForCurrent = async () => {
+  if (!examplesWord.value) return
+  examplesAiLoading.value = true
+  try {
+    await generateExamplesForWords([examplesWord.value.id], 3)
+    ElMessage.success('AI 例句生成完成')
+    await loadExamples(examplesWord.value.id)
+    loadWords(false)
+  } catch (e) {
+    console.error(e)
+    ElMessage.error('AI 生成失败：' + (e?.response?.data?.message || e.message))
+  } finally {
+    examplesAiLoading.value = false
+  }
+}
+
+// ---------- 批量 AI 例句生成 ----------
+const batchAiVisible = ref(false)
+const batchAiRunning = ref(false)
+const batchAiIds = ref([])
+const batchAiWords = computed(() => selectedWords.value.filter((w) => batchAiIds.value.includes(w.id)))
+const batchAiCount = ref(3)
+
+const openBatchAiDialog = () => {
+  batchAiIds.value = selectedWords.value.map((w) => w.id)
+  batchAiCount.value = 3
+  batchAiVisible.value = true
+}
+
+const runBatchAi = async () => {
+  batchAiRunning.value = true
+  try {
+    await generateExamplesForWords(batchAiIds.value, batchAiCount.value)
+    ElMessage.success(`已为 ${batchAiIds.value.length} 个单词生成 AI 例句`)
+    batchAiVisible.value = false
+    loadWords(false)
+  } catch (e) {
+    console.error(e)
+    ElMessage.error('批量生成失败：' + (e?.response?.data?.message || e.message))
+  } finally {
+    batchAiRunning.value = false
+  }
+}
+
+// ---------- PDF / AI 导入 ----------
+const importDialogVisible = ref(false)
+const importMode = ref('pdf') // 'pdf' | 'ai'
+const importAiTab = ref('file') // 'file' | 'text'
+const importText = ref('')
+const importParsing = ref(false)
+const importItems = ref([])
+const importConfirming = ref(false)
+const selectedImportItems = ref([])
+const selectAllImport = ref(false)
+
+const openImportDialog = (mode) => {
+  importMode.value = mode
+  importAiTab.value = 'file'
+  importText.value = ''
+  importItems.value = []
+  selectedImportItems.value = []
+  importDialogVisible.value = true
+}
+
+const closeImportDialog = () => {
+  importDialogVisible.value = false
+  importItems.value = []
+  selectedImportItems.value = []
+  importText.value = ''
+}
+
+const onPdfFileChange = async (file) => {
+  importParsing.value = true
+  importItems.value = []
+  try {
+    const res = await parsePdfImport(file.raw)
+    importItems.value = (res?.items || res || []).map((it) => ({ ...it, _selected: !it.alreadyExists }))
+    selectedImportItems.value = importItems.value.filter((it) => it._selected)
+    selectAllImport.value = false
+    if (!importItems.value.length) ElMessage.warning('未从 PDF 中解析出任何单词')
+  } catch (e) {
+    console.error(e)
+    ElMessage.error('PDF 解析失败：' + (e?.response?.data?.message || e.message))
+  } finally {
+    importParsing.value = false
+  }
+}
+
+const parseAiText = async () => {
+  if (!importText.value.trim()) {
+    ElMessage.warning('请粘贴文本')
+    return
+  }
+  importParsing.value = true
+  importItems.value = []
+  try {
+    const res = await parseAiTextImport(importText.value)
+    importItems.value = (res?.items || res || []).map((it) => ({ ...it, _selected: !it.alreadyExists }))
+    selectedImportItems.value = importItems.value.filter((it) => it._selected)
+    selectAllImport.value = false
+    if (!importItems.value.length) ElMessage.warning('未从文本中解析出任何单词')
+  } catch (e) {
+    console.error(e)
+    ElMessage.error('AI 解析失败：' + (e?.response?.data?.message || e.message))
+  } finally {
+    importParsing.value = false
+  }
+}
+
+const onAiFileChange = async (file) => {
+  importParsing.value = true
+  importItems.value = []
+  try {
+    const res = await parseAiFileImport(file.raw)
+    importItems.value = (res?.items || res || []).map((it) => ({ ...it, _selected: !it.alreadyExists }))
+    selectedImportItems.value = importItems.value.filter((it) => it._selected)
+    selectAllImport.value = false
+    if (!importItems.value.length) ElMessage.warning('AI 未从文件中识别出任何单词')
+  } catch (e) {
+    console.error(e)
+    ElMessage.error('AI 解析失败：' + (e?.response?.data?.message || e.message))
+  } finally {
+    importParsing.value = false
+  }
+}
+
+const onImportSelectionChange = (rows) => {
+  selectedImportItems.value = rows
+}
+
+const toggleSelectAllImport = (val) => {
+  if (val) {
+    selectedImportItems.value = [...importItems.value]
+  } else {
+    selectedImportItems.value = []
+  }
+}
+
+const confirmImport = async () => {
+  if (!selectedImportItems.value.length) return
+  importConfirming.value = true
+  try {
+    const payload = selectedImportItems.value.map((it) => ({
+      word: it.word,
+      phonetic: it.phonetic || null,
+      partOfSpeech: it.partOfSpeech || null,
+      definition: it.definition || null,
+      examples: it.examples || []
+    }))
+    await confirmPdfImport(payload)
+    ElMessage.success(`已导入 ${payload.length} 个单词`)
+    closeImportDialog()
+    loadWords(true)
+  } catch (e) {
+    console.error(e)
+    ElMessage.error('导入失败：' + (e?.response?.data?.message || e.message))
+  } finally {
+    importConfirming.value = false
+  }
+}
 </script>
 
 <style scoped>
@@ -1426,6 +2181,204 @@ onMounted(() => {
 }
 .fav-time {
   color: var(--color-ink-faint);
+}
+
+/* ============ 单词库管理 ============ */
+.word-tools {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.word-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.word-toolbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.word-selected-tip {
+  font-size: 12.5px;
+  color: var(--color-primary-deep);
+  background: var(--color-primary-tint);
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+}
+
+.word-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.word-cell strong {
+  font-size: 14.5px;
+  color: var(--color-ink);
+}
+.word-phonetic {
+  font-size: 12px;
+  color: var(--color-ink-faint);
+}
+.word-tag-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.word-class {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+}
+.word-class.lv-easy { background: var(--color-primary-tint); color: var(--color-moss); }
+.word-class.lv-medium { background: #fdf3e2; color: var(--color-amber); }
+.word-class.lv-hard { background: #fdecea; color: var(--color-rust); }
+.word-def {
+  color: var(--color-ink-soft);
+  font-size: 13px;
+}
+
+.word-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+/* 例句抽屉 */
+.examples-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--color-primary-tint), #ffffff 70%);
+  margin-bottom: 14px;
+}
+.examples-hero {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.examples-add {
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  background: var(--color-surface);
+}
+.examples-add h4,
+.examples-list h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+.ex-examples {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ex-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.ex-row {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--color-surface);
+}
+.ex-text {
+  font-size: 14px;
+  color: var(--color-ink);
+  line-height: 1.5;
+}
+.ex-trans {
+  margin-top: 4px;
+  font-size: 12.5px;
+  color: var(--color-ink-soft);
+}
+.ex-foot {
+  margin-top: 6px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* 批量 AI */
+.batch-ai-tip {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--color-ink-soft);
+}
+.batch-ai-list {
+  max-height: 120px;
+  overflow-y: auto;
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: 10px;
+  background: var(--color-surface-2);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.batch-ai-chip {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary-tint);
+  color: var(--color-primary-deep);
+  font-weight: 600;
+}
+
+/* 导入 */
+.pdf-uploader {
+  padding: 12px;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: 12px;
+  background: var(--color-surface-2);
+}
+.import-progress {
+  margin: 14px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-ink-soft);
+  font-size: 13px;
+}
+.import-preview {
+  margin-top: 14px;
+}
+.import-preview-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.import-preview-head h4 {
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-ink);
+}
+.import-stat {
+  margin-left: 12px;
+  font-size: 12px;
+  color: var(--color-ink-faint);
+}
+
+@media (max-width: 980px) {
+  .word-form-grid { grid-template-columns: 1fr; }
+  .word-toolbar-right { margin-left: 0; width: 100%; }
 }
 
 /* ============ 响应式 ============ */

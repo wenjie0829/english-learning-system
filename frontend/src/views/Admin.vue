@@ -1629,7 +1629,8 @@ const confirmImport = async () => {
 .admin-layout {
   display: flex;
   min-height: 100vh;
-  background: var(--color-bg);
+  background: var(--color-bg-gradient);
+  background-attachment: fixed;
 }
 
 /* 左侧栏 */

@@ -300,11 +300,11 @@ onMounted(load)
   gap: 32px;
   border-radius: 24px;
   padding: 36px 40px;
-  color: #fff;
+  color: #1f4d2e;
   background:
-    radial-gradient(1200px 300px at 85% -60%, rgba(255, 255, 255, 0.22), transparent 60%),
-    linear-gradient(118deg, #0f7c48 0%, #17a05c 55%, #34b87a 100%);
-  box-shadow: 0 18px 44px rgba(15, 124, 72, 0.28);
+    radial-gradient(1200px 300px at 85% -60%, rgba(255, 255, 255, 0.55), transparent 60%),
+    linear-gradient(118deg, #cfe7b0 0%, #b8db90 55%, #a2ce72 100%);
+  box-shadow: 0 18px 40px rgba(126, 168, 92, 0.30);
   overflow: hidden;
   position: relative;
 }
@@ -316,7 +316,7 @@ onMounted(load)
   font-size: 190px;
   font-weight: 800;
   line-height: 1;
-  color: rgba(255, 255, 255, 0.10);
+  color: rgba(31, 77, 46, 0.08);
   font-family: var(--font-display);
   pointer-events: none;
   letter-spacing: -0.06em;
@@ -330,7 +330,7 @@ onMounted(load)
   margin: 0 0 8px;
   font-size: 15px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.86);
+  color: #3d6b4f;
 }
 .hero-title {
   margin: 0 0 10px;
@@ -342,7 +342,7 @@ onMounted(load)
 .hero-sub {
   margin: 0 0 26px;
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.82);
+  color: #3d6b4f;
 }
 .hero-actions {
   display: flex;
@@ -350,25 +350,25 @@ onMounted(load)
   flex-wrap: wrap;
 }
 .cta-primary {
-  --el-button-bg-color: #ffffff;
-  --el-button-border-color: #ffffff;
-  --el-button-text-color: #0f7c48;
-  --el-button-hover-bg-color: #ecf8f2;
-  --el-button-hover-border-color: #ecf8f2;
-  --el-button-hover-text-color: #0a5e35;
+  --el-button-bg-color: #0e7c46;
+  --el-button-border-color: #0e7c46;
+  --el-button-text-color: #ffffff;
+  --el-button-hover-bg-color: #0a5e35;
+  --el-button-hover-border-color: #0a5e35;
+  --el-button-hover-text-color: #ffffff;
   font-weight: 700;
-  box-shadow: 0 8px 18px rgba(6, 66, 37, 0.25);
+  box-shadow: 0 8px 18px rgba(14, 124, 70, 0.28);
 }
 .cta-icon {
   margin-right: 2px;
 }
 .cta-secondary {
-  --el-button-bg-color: rgba(255, 255, 255, 0.16);
-  --el-button-border-color: rgba(255, 255, 255, 0.55);
-  --el-button-text-color: #ffffff;
-  --el-button-hover-bg-color: rgba(255, 255, 255, 0.26);
-  --el-button-hover-border-color: #ffffff;
-  --el-button-hover-text-color: #ffffff;
+  --el-button-bg-color: rgba(255, 255, 255, 0.5);
+  --el-button-border-color: rgba(14, 124, 70, 0.45);
+  --el-button-text-color: #0a5e35;
+  --el-button-hover-bg-color: rgba(255, 255, 255, 0.78);
+  --el-button-hover-border-color: #0e7c46;
+  --el-button-hover-text-color: #0a5e35;
   font-weight: 600;
   backdrop-filter: blur(4px);
 }
@@ -392,36 +392,36 @@ onMounted(load)
   align-items: center;
   justify-content: center;
   gap: 2px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 2px dashed rgba(255, 255, 255, 0.65);
+  background: rgba(255, 255, 255, 0.45);
+  border: 2px dashed rgba(14, 124, 70, 0.5);
   backdrop-filter: blur(4px);
 }
 .checkin-ring.done {
   border-style: solid;
-  background: rgba(255, 255, 255, 0.94);
-  color: #0f7c48;
-  box-shadow: 0 10px 30px rgba(6, 66, 37, 0.22);
+  background: #ffffff;
+  color: #0e7c46;
+  box-shadow: 0 10px 30px rgba(14, 124, 70, 0.22);
 }
 .ring-num {
   font-size: 52px;
   font-weight: 800;
   line-height: 1;
-  color: #fff;
+  color: #1f4d2e;
 }
 .ring-unit {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.9);
+  color: #3d6b4f;
 }
 .checkin-label {
   font-size: 16px;
   font-weight: 700;
-  color: #0f7c48;
+  color: #0e7c46;
   margin-top: 2px;
 }
 .checkin-hint {
   margin: 0;
   font-size: 12.5px;
-  color: rgba(255, 255, 255, 0.82);
+  color: #3d6b4f;
   max-width: 180px;
   text-align: center;
 }

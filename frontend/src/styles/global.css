@@ -1,6 +1,6 @@
 /* ============================================================
-   智能英语学习系统 · 全局设计令牌（清爽背单词风）
-   风格参考：墨墨/不背单词等主流背单词站 —— 白底、绿主色、
+   自在背单词 · 全局设计令牌（清爽背单词风）
+   风格参考：墨墨/不背单词等主流背单词站 —— 绿意渐变底、绿主色、
    大圆角卡片、克制的阴影、字重分明的排版
    ============================================================ */
 
@@ -9,7 +9,8 @@
   --color-ink: #1c2b24;          /* 主文字（墨绿黑） */
   --color-ink-soft: #5f6f66;     /* 次级文字 */
   --color-ink-faint: #93a098;    /* 弱化文字 */
-  --color-bg: #f4f7f4;           /* 页面背景（浅灰绿） */
+  --color-bg: #eef6e2;           /* 页面背景兜底色（嫩芽绿） */
+  --color-bg-gradient: linear-gradient(152deg, #f7fcee 0%, #ebf8dc 34%, #dcefc4 68%, #cae7a6 100%);
   --color-surface: #ffffff;      /* 卡片表面 */
   --color-surface-2: #f6f9f6;    /* 次级表面（表头/内衬） */
   --color-border: #e3e9e4;       /* 分割线 */
@@ -69,7 +70,8 @@ html, body {
 
 body {
   font-family: var(--font-body);
-  background: var(--color-bg);
+  background: var(--color-bg-gradient);
+  background-attachment: fixed;
   color: var(--color-ink);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -77,8 +79,11 @@ body {
   line-height: 1.6;
 }
 
+/* 全部页面统一铺这层绿意渐变底 */
 #app {
   min-height: 100vh;
+  background: var(--color-bg-gradient);
+  background-attachment: fixed;
 }
 
 /* ---- 通用页面容器 ---- */

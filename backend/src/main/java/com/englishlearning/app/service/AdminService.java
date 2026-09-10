@@ -10,6 +10,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 @Service
@@ -340,93 +344,134 @@ public class AdminService {
      * 给一批单词批量生成例句（AI 现生成，不依赖原文有没有例句）。
      * 采用「追加」语义：每次调用都会为单词补上 countPerWord 条新例句，已经有的例句不会被顶掉，
      * 只有「句子内容完全重复」的才会被丢弃（同一句不重复入库），因此反复点击按钮可以持续补充新例句。
-     * 每个单词单独调用一次 AI，某一个失败不影响其他单词继续处理。
+     *
+     * 性能说明：每个单词单独调一次 DeepSeek（典型耗时 1~3 秒）。为了一次性处理大词表
+     * （用户希望"一键为所有单词生成，不分批"），这里用一个固定大小的线程池并发执行。
+     * 单次上限 2000 个单词，主要是为了兜底防止误调用拖垮服务，不是硬性业务限制。
      */
-   // 就算前端已经做了分批调用，后端这里也加一道防线：
-    // 万一哪天前端逻辑改了/被绕过，单次请求最多处理这么多个单词，
-    // 避免一次性处理几十上百个单词导致请求长时间不返回、占用大量内存。
-    private static final int MAX_BATCH_SIZE = 20;
+    private static final int MAX_BATCH_SIZE = 2000;
+    // 并发调 AI 的线程数。DeepSeek 普通账号同时 5 路并发比较稳；再多可能触发限流。
+    private static final int AI_PARALLELISM = 5;
+    // 守护线程：服务关闭时自动结束，不用单独 @PreDestroy 收尾
+    private final ExecutorService aiPool = Executors.newFixedThreadPool(AI_PARALLELISM, r -> {
+        Thread t = new Thread(r, "ai-examples-pool");
+        t.setDaemon(true);
+        return t;
+    });
 
-    @Transactional
     public Map<String, Object> generateExamplesForWords(List<Long> wordIds, int countPerWord) {
-        if (wordIds != null && wordIds.size() > MAX_BATCH_SIZE) {
-            throw new RuntimeException("单次最多处理 " + MAX_BATCH_SIZE + " 个单词，请分批选择");
+        List<Long> ids = wordIds == null ? List.of() : wordIds;
+        if (ids.size() > MAX_BATCH_SIZE) {
+            throw new RuntimeException("单次最多处理 " + MAX_BATCH_SIZE + " 个单词（本次传入 " + ids.size() + " 个）");
         }
-        if (countPerWord <= 0) {
-            countPerWord = 3;
-        }
+        // 用 final 局部变量承接参数默认值，避免改原参数后 lambda 捕获失败
+        final int effectiveCount = countPerWord <= 0 ? 3 : countPerWord;
 
-        int generated = 0;              // 实际新增到例句的单词数
-        int failed = 0;                 // AI 调用失败的单词数
-        int skippedAllDuplicate = 0;    // AI 返回的句子全部与已有例句重复的单词数
-        int totalExamplesCreated = 0;   // 累计新增例句条数
-        int duplicatesSkipped = 0;      // 因重复被丢弃的例句条数
+        // 聚合计数器（每个单词的处理结果在子线程里更新这里）
+        AtomicInteger generated = new AtomicInteger();
+        AtomicInteger failed = new AtomicInteger();
+        AtomicInteger skippedAllDuplicate = new AtomicInteger();
+        AtomicInteger totalExamplesCreated = new AtomicInteger();
+        AtomicInteger duplicatesSkipped = new AtomicInteger();
 
-        if (wordIds != null) {
-            for (Long wordId : wordIds) {
-                Word word = wordRepository.findById(wordId).orElse(null);
-                if (word == null) {
-                    failed++;
-                    continue;
-                }
-
-                // 该单词已有的例句（归一化后用于去重，保证同一句话不会重复入库）
-                Set<String> existing = exampleSentenceRepository.findByWord(word).stream()
-                        .map(ExampleSentence::getSentence)
-                        .filter(Objects::nonNull)
-                        .map(s -> s.trim().toLowerCase(Locale.ROOT))
-                        .filter(s -> !s.isEmpty())
-                        .collect(Collectors.toSet());
-
+        List<CompletableFuture<Void>> futures = new ArrayList<>(ids.size());
+        for (Long id : ids) {
+            // lambda 捕获：for 循环里的 id 每次迭代会被覆盖，无法直接捕获，转成 final 副本
+            final Long wordId = id;
+            futures.add(CompletableFuture.runAsync(() -> {
                 try {
-                    List<ImportExampleItem> examples = aiExampleGenerationService.generateExamples(word, countPerWord);
-
-                    int created = 0;
-                    for (ImportExampleItem ex : examples) {
-                        String text = ex.getSentence() == null ? "" : ex.getSentence().trim();
-                        if (text.isEmpty()) {
-                            continue;
-                        }
-                        String key = text.toLowerCase(Locale.ROOT);
-                        // 同一批次内部去重 + 与库里已有例句去重，其余全部追加
-                        if (existing.contains(key)) {
-                            duplicatesSkipped++;
-                            continue;
-                        }
-                        existing.add(key);
-                        ExampleSentence sentence = new ExampleSentence();
-                        sentence.setWord(word);
-                        sentence.setSentence(text);
-                        sentence.setTranslation(ex.getTranslation());
-                        sentence.setIsOriginal(false); // 标记为 AI 生成，非原文摘录
-                        exampleSentenceRepository.save(sentence);
-                        created++;
-                    }
-
-                    if (created > 0) {
-                        generated++;
-                        totalExamplesCreated += created;
-                    } else {
-                        // AI 有返回（或返回为空），但没有产出任何新例句
-                        skippedAllDuplicate++;
-                        if (examples.isEmpty()) {
-                            failed++;
-                        }
-                    }
+                    WordOneResult r = processOneWordForExamples(wordId, effectiveCount);
+                    generated.addAndGet(r.generated);
+                    failed.addAndGet(r.failed);
+                    skippedAllDuplicate.addAndGet(r.noNew);
+                    totalExamplesCreated.addAndGet(r.created);
+                    duplicatesSkipped.addAndGet(r.dup);
                 } catch (Exception e) {
-                    failed++;
+                    failed.incrementAndGet();
                 }
-            }
+            }, aiPool));
         }
+        // 等所有并发任务结束。因为每个 task 已经 try/catch，这里不会抛异常出来
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
         Map<String, Object> result = new HashMap<>();
-        result.put("wordsGenerated", generated);
-        result.put("wordsFailed", failed);
-        result.put("wordsNoNew", skippedAllDuplicate);
-        result.put("totalExamplesCreated", totalExamplesCreated);
-        result.put("duplicatesSkipped", duplicatesSkipped);
+        result.put("wordsGenerated", generated.get());
+        result.put("wordsFailed", failed.get());
+        result.put("wordsNoNew", skippedAllDuplicate.get());
+        result.put("totalExamplesCreated", totalExamplesCreated.get());
+        result.put("duplicatesSkipped", duplicatesSkipped.get());
         // 兼容旧字段名
-        result.put("wordsSkipped", skippedAllDuplicate);
+        result.put("wordsSkipped", skippedAllDuplicate.get());
         return result;
+    }
+
+    /**
+     * 给单个单词生成例句并入库，返回计数。不开外层事务（避免 AI 慢调用期间占用 DB 连接池），
+     * 每个 save() 由 Spring Data 自己开短事务，足够原子。线程安全：每个单词只跑一次，无共享写。
+     */
+    private WordOneResult processOneWordForExamples(Long wordId, int countPerWord) {
+        WordOneResult r = new WordOneResult();
+        Word word = wordRepository.findById(wordId).orElse(null);
+        if (word == null) {
+            r.failed = 1;
+            return r;
+        }
+
+        // 该单词已有的例句（归一化后用于去重，保证同一句话不会重复入库）
+        Set<String> existing = exampleSentenceRepository.findByWord(word).stream()
+                .map(ExampleSentence::getSentence)
+                .filter(Objects::nonNull)
+                .map(s -> s.trim().toLowerCase(Locale.ROOT))
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toSet());
+
+        List<ImportExampleItem> examples;
+        try {
+            examples = aiExampleGenerationService.generateExamples(word, countPerWord);
+        } catch (Exception e) {
+            r.failed = 1;
+            return r;
+        }
+
+        int created = 0;
+        for (ImportExampleItem ex : examples) {
+            String text = ex.getSentence() == null ? "" : ex.getSentence().trim();
+            if (text.isEmpty()) {
+                continue;
+            }
+            String key = text.toLowerCase(Locale.ROOT);
+            if (existing.contains(key)) {
+                r.dup++;
+                continue;
+            }
+            existing.add(key);
+            ExampleSentence sentence = new ExampleSentence();
+            sentence.setWord(word);
+            sentence.setSentence(text);
+            sentence.setTranslation(ex.getTranslation());
+            sentence.setIsOriginal(false); // 标记为 AI 生成，非原文摘录
+            exampleSentenceRepository.save(sentence);
+            created++;
+        }
+
+        r.created = created;
+        if (created > 0) {
+            r.generated = 1;
+        } else {
+            r.noNew = 1;
+            if (examples.isEmpty()) {
+                r.failed = 1;
+            }
+        }
+        return r;
+    }
+
+    /** 单个单词的处理结果，线程内独立对象，聚合到 AtomicInteger 之后丢弃。 */
+    private static class WordOneResult {
+        int generated;     // 该单词是否产出新例句（1/0）
+        int failed;        // 该单词是否 AI 失败（1/0）
+        int noNew;         // AI 有返回但全部重复（1/0）
+        int created;       // 新增条数
+        int dup;           // 本次被丢弃的重复条数
     }
 }

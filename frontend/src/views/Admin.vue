@@ -291,6 +291,14 @@
                 <el-icon><MagicStick /></el-icon> AI 生成例句
               </el-button>
               <el-button
+                type="warning"
+                round
+                plain
+                @click="openBatchAiAllDialog"
+              >
+                <el-icon><MagicStick /></el-icon> 一键为全部单词生成
+              </el-button>
+              <el-button
                 v-if="selectedWords.length"
                 type="danger"
                 round
@@ -677,10 +685,12 @@
     <!-- ============ 批量 AI 例句生成弹窗 ============ -->
     <el-dialog v-model="batchAiVisible" title="批量生成 AI 例句" width="520px" align-center>
       <p class="batch-ai-tip">
-        将为以下 <strong>{{ batchAiIds.length }}</strong> 个单词各生成 <strong>{{ batchAiCount }}</strong> 条 AI 例句。
-        该过程会调用 DeepSeek，可能耗时数十秒。
+        将为 <strong>{{ batchAiIds.length }}</strong> 个单词各生成 <strong>{{ batchAiCount }}</strong> 条 AI 例句。
+        <span v-if="batchAiAll" class="batch-ai-warn">（已选择全部单词，后端 5 路并发，预计需要约 {{ batchAiEstimatedMinutes }} 分钟）</span>
+        <span v-else>该过程会调用 DeepSeek，可能耗时数十秒。</span>
       </p>
-      <div class="batch-ai-list">
+      <!-- 单词数量少（≤50）时展示具体清单；全选模式直接隐藏避免撑爆弹窗 -->
+      <div v-if="!batchAiAll && batchAiWords.length && batchAiWords.length <= 50" class="batch-ai-list">
         <span v-for="w in batchAiWords" :key="w.id" class="batch-ai-chip">{{ w.word }}</span>
       </div>
       <el-form label-position="top">
@@ -1490,11 +1500,27 @@ const generateAiExamplesForCurrent = async () => {
 const batchAiVisible = ref(false)
 const batchAiRunning = ref(false)
 const batchAiIds = ref([])
-const batchAiWords = computed(() => selectedWords.value.filter((w) => batchAiIds.value.includes(w.id)))
+const batchAiAll = ref(false) // 是否「一键为所有单词生成」
+const batchAiWords = computed(() => words.value.filter((w) => batchAiIds.value.includes(w.id)))
 const batchAiCount = ref(3)
+const batchAiEstimatedMinutes = computed(() => {
+  // 估算耗时：每词 ~2.5 秒，5 路并发 → 总耗时 ≈ N/5 * 2.5 秒；向上取整给分钟数
+  const n = batchAiIds.value.length
+  if (!n) return 0
+  return Math.max(1, Math.ceil((n / 5) * 2.5 / 60))
+})
 
 const openBatchAiDialog = () => {
   batchAiIds.value = selectedWords.value.map((w) => w.id)
+  batchAiAll.value = false
+  batchAiCount.value = 3
+  batchAiVisible.value = true
+}
+
+const openBatchAiAllDialog = () => {
+  // 不依赖表格勾选：直接拿当前已加载的全部单词 ID
+  batchAiIds.value = words.value.map((w) => w.id)
+  batchAiAll.value = true
   batchAiCount.value = 3
   batchAiVisible.value = true
 }
@@ -2349,6 +2375,15 @@ const confirmImport = async () => {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+.batch-ai-warn {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: rgba(217, 143, 74, 0.12);
+  color: #b66a16;
+  font-size: 13px;
 }
 .batch-ai-chip {
   font-size: 12px;

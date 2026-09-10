@@ -34,7 +34,7 @@ public class AiExampleGenerationService {
     @Value("${ai.api-url:https://api.deepseek.com/chat/completions}")
     private String apiUrl;
 
-    @Value("${ai.model:deepseek-v4-flash}")
+    @Value("${ai.model:deepseek-chat}")
     private String model;
 
     private final ObjectMapper objectMapper;
@@ -60,16 +60,17 @@ public class AiExampleGenerationService {
         String systemPrompt = "你是一个英语教学助手，负责给英语单词生成地道、自然、贴近日常使用场景的例句。"
                 + "要求：例句要能体现这个单词的典型用法和这个具体释义，长度适中（一句话，不要太长太复杂），"
                 + "不同例句之间场景要有变化，不要重复相似的句式。每条例句配一句准确的中文翻译。"
+                + "必须严格按照用户要求的数量生成，examples 数组的元素个数要和要求的数量完全一致，数量不足视为回答错误。"
                 + "只输出一个 JSON 对象，不要输出任何其他说明文字，不要用 markdown 代码块包裹。"
                 + "JSON 格式严格如下：{\"examples\":[{\"sentence\":\"英文例句\",\"translation\":\"中文翻译\"}]}。";
 
         String userPrompt = String.format(
-                "单词：%s\n音标：%s\n词性：%s\n中文释义：%s\n请生成 %d 条例句。",
+                "单词：%s\n音标：%s\n词性：%s\n中文释义：%s\n请生成 %d 条例句，examples 数组必须正好包含 %d 个元素。",
                 word.getWord(),
                 word.getPhonetic() == null ? "无" : word.getPhonetic(),
                 word.getPartOfSpeech() == null ? "无" : word.getPartOfSpeech(),
                 word.getDefinition() == null ? "无" : word.getDefinition(),
-                count
+                count, count
         );
 
         Map<String, Object> requestBody = new HashMap<>();

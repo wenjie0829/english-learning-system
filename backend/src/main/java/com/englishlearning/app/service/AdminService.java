@@ -338,7 +338,8 @@ public class AdminService {
 
     /**
      * 给一批单词批量生成例句（AI 现生成，不依赖原文有没有例句）。
-     * 已经有例句的单词会被跳过，不会重复叠加——避免每点一次都往同一个单词猛塞例句。
+     * 采用「追加」语义：每次调用都会为单词补上 countPerWord 条新例句，已经有的例句不会被顶掉，
+     * 只有「句子内容完全重复」的才会被丢弃（同一句不重复入库），因此反复点击按钮可以持续补充新例句。
      * 每个单词单独调用一次 AI，某一个失败不影响其他单词继续处理。
      */
    // 就算前端已经做了分批调用，后端这里也加一道防线：
@@ -351,11 +352,15 @@ public class AdminService {
         if (wordIds != null && wordIds.size() > MAX_BATCH_SIZE) {
             throw new RuntimeException("单次最多处理 " + MAX_BATCH_SIZE + " 个单词，请分批选择");
         }
+        if (countPerWord <= 0) {
+            countPerWord = 3;
+        }
 
-        int generated = 0;
-        int skippedHasExamples = 0;
-        int failed = 0;
-        int totalExamplesCreated = 0;
+        int generated = 0;              // 实际新增到例句的单词数
+        int failed = 0;                 // AI 调用失败的单词数
+        int skippedAllDuplicate = 0;    // AI 返回的句子全部与已有例句重复的单词数
+        int totalExamplesCreated = 0;   // 累计新增例句条数
+        int duplicatesSkipped = 0;      // 因重复被丢弃的例句条数
 
         if (wordIds != null) {
             for (Long wordId : wordIds) {
@@ -365,27 +370,48 @@ public class AdminService {
                     continue;
                 }
 
-                List<ExampleSentence> existing = exampleSentenceRepository.findByWord(word);
-                if (!existing.isEmpty()) {
-                    skippedHasExamples++;
-                    continue;
-                }
+                // 该单词已有的例句（归一化后用于去重，保证同一句话不会重复入库）
+                Set<String> existing = exampleSentenceRepository.findByWord(word).stream()
+                        .map(ExampleSentence::getSentence)
+                        .filter(Objects::nonNull)
+                        .map(s -> s.trim().toLowerCase(Locale.ROOT))
+                        .filter(s -> !s.isEmpty())
+                        .collect(Collectors.toSet());
 
                 try {
                     List<ImportExampleItem> examples = aiExampleGenerationService.generateExamples(word, countPerWord);
+
+                    int created = 0;
                     for (ImportExampleItem ex : examples) {
+                        String text = ex.getSentence() == null ? "" : ex.getSentence().trim();
+                        if (text.isEmpty()) {
+                            continue;
+                        }
+                        String key = text.toLowerCase(Locale.ROOT);
+                        // 同一批次内部去重 + 与库里已有例句去重，其余全部追加
+                        if (existing.contains(key)) {
+                            duplicatesSkipped++;
+                            continue;
+                        }
+                        existing.add(key);
                         ExampleSentence sentence = new ExampleSentence();
                         sentence.setWord(word);
-                        sentence.setSentence(ex.getSentence());
+                        sentence.setSentence(text);
                         sentence.setTranslation(ex.getTranslation());
                         sentence.setIsOriginal(false); // 标记为 AI 生成，非原文摘录
                         exampleSentenceRepository.save(sentence);
-                        totalExamplesCreated++;
+                        created++;
                     }
-                    if (!examples.isEmpty()) {
+
+                    if (created > 0) {
                         generated++;
+                        totalExamplesCreated += created;
                     } else {
-                        failed++;
+                        // AI 有返回（或返回为空），但没有产出任何新例句
+                        skippedAllDuplicate++;
+                        if (examples.isEmpty()) {
+                            failed++;
+                        }
                     }
                 } catch (Exception e) {
                     failed++;
@@ -395,9 +421,12 @@ public class AdminService {
 
         Map<String, Object> result = new HashMap<>();
         result.put("wordsGenerated", generated);
-        result.put("wordsSkipped", skippedHasExamples);
         result.put("wordsFailed", failed);
+        result.put("wordsNoNew", skippedAllDuplicate);
         result.put("totalExamplesCreated", totalExamplesCreated);
+        result.put("duplicatesSkipped", duplicatesSkipped);
+        // 兼容旧字段名
+        result.put("wordsSkipped", skippedAllDuplicate);
         return result;
     }
 }

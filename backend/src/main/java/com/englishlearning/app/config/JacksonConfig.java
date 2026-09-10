@@ -17,6 +17,12 @@ public class JacksonConfig {
 
     @Bean
     public Hibernate6Module hibernate6Module() {
-        return new Hibernate6Module();
+        Hibernate6Module module = new Hibernate6Module();
+        // 默认行为（USE_TRANSIENT_ANNOTATION=true）会把所有带 @Transient 的字段从 JSON 里直接剔除。
+        // 但 @Transient 的语义只是"这个字段不落库"，不应该连接口返回也一起吞掉——
+        // 单词列表里的 exampleCount（例句数量）就是这么凭空消失的，前端只能当成 0。
+        // 项目里目前只有 Word.exampleCount 一个 @Transient 字段，关掉这个行为没有其他副作用。
+        module.disable(Hibernate6Module.Feature.USE_TRANSIENT_ANNOTATION);
+        return module;
     }
 }

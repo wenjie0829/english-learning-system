@@ -1466,8 +1466,16 @@ const generateAiExamplesForCurrent = async () => {
   if (!examplesWord.value) return
   examplesAiLoading.value = true
   try {
-    await generateExamplesForWords([examplesWord.value.id], 3)
-    ElMessage.success('AI 例句生成完成')
+    const res = await generateExamplesForWords([examplesWord.value.id], 3)
+    const created = res?.totalExamplesCreated || 0
+    const failed = res?.wordsFailed || 0
+    if (created > 0) {
+      ElMessage.success(`AI 新增了 ${created} 条例句`)
+    } else if (failed > 0) {
+      ElMessage.error('AI 生成失败，请检查 AI Key 是否可用')
+    } else {
+      ElMessage.warning('本次没有生成新的例句（与已有例句重复），可再试一次')
+    }
     await loadExamples(examplesWord.value.id)
     loadWords(false)
   } catch (e) {
@@ -1494,8 +1502,17 @@ const openBatchAiDialog = () => {
 const runBatchAi = async () => {
   batchAiRunning.value = true
   try {
-    await generateExamplesForWords(batchAiIds.value, batchAiCount.value)
-    ElMessage.success(`已为 ${batchAiIds.value.length} 个单词生成 AI 例句`)
+    const res = await generateExamplesForWords(batchAiIds.value, batchAiCount.value)
+    const created = res?.totalExamplesCreated || 0
+    const failed = res?.wordsFailed || 0
+    if (created > 0) {
+      ElMessage.success(`已新增 ${created} 条例句，覆盖 ${res?.wordsGenerated || 0} 个单词`)
+    } else {
+      ElMessage.warning('本次没有生成新的例句（可能与已有例句重复），可再试一次')
+    }
+    if (failed > 0) {
+      ElMessage.warning(`${failed} 个单词生成失败，请检查 AI Key 是否可用`)
+    }
     batchAiVisible.value = false
     loadWords(false)
   } catch (e) {

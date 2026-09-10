@@ -23,8 +23,31 @@ public class WordService {
         this.exampleSentenceRepository = exampleSentenceRepository;
     }
 
+    @Transactional(readOnly = true)
     public List<Word> getAllWords() {
-        return wordRepository.findAll();
+        List<Word> words = wordRepository.findAll();
+        attachExampleCounts(words);
+        return words;
+    }
+
+    /**
+     * 给单词批量填充例句数量（只读填充，不落库）。
+     * 用一次 group by 查出所有单词的例句数，再在内存里对应上去，避免逐个单词查库。
+     */
+    private void attachExampleCounts(List<Word> words) {
+        if (words == null || words.isEmpty()) {
+            return;
+        }
+        Map<Long, Integer> counts = new HashMap<>();
+        for (Object[] row : exampleSentenceRepository.countGroupByWord()) {
+            if (row == null || row.length < 2 || row[0] == null || row[1] == null) {
+                continue;
+            }
+            counts.put(((Number) row[0]).longValue(), ((Number) row[1]).intValue());
+        }
+        for (Word word : words) {
+            word.setExampleCount(counts.getOrDefault(word.getId(), 0));
+        }
     }
 
     public Optional<Word> getWordById(Long id) {

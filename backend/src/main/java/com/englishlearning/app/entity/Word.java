@@ -3,6 +3,7 @@ package com.englishlearning.app.entity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -49,6 +50,15 @@ public class Word {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    /**
+     * 例句数量：不落库，只在查询时临时填充（管理端单词列表要显示"管理 (N)"）。
+     * 之所以放在实体上而不是单独建 VO，是因为单词列表接口本来就返回 Word 实体，
+     * 加一个 @Transient 字段改动面最小，也不会影响数据库表结构。
+     */
+    @Transient
+    @EqualsAndHashCode.Exclude
+    private Integer exampleCount;
 
     public enum DifficultyLevel {
         EASY, MEDIUM, HARD

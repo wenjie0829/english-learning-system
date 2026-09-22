@@ -139,8 +139,8 @@
               v-for="ann in announcements"
               :key="ann.id"
               class="announce-item clickable"
-              title="查看全部公告"
-              @click="goTo('/announcements')"
+              title="点击查看公告详情"
+              @click="openAnnounce(ann)"
             >
               <span class="announce-badge">公告</span>
               <div class="announce-body">
@@ -154,6 +154,39 @@
             <el-icon :size="34"><Bell /></el-icon>
             <p>暂无公告</p>
           </div>
+
+          <!-- 点击某条公告 → 当前页弹出详情悬浮窗（不跳转页面） -->
+          <el-dialog
+            v-model="announceVisible"
+            width="600px"
+            align-center
+            :show-close="true"
+            class="announce-dialog"
+          >
+            <template #header>
+              <div class="ad-head">
+                <span class="announce-badge">公告</span>
+                <h3 class="ad-title">{{ currentAnnounce?.title || '公告详情' }}</h3>
+              </div>
+            </template>
+
+            <div v-if="currentAnnounce" class="ad-body">
+              <div class="ad-meta">
+                <el-icon><Clock /></el-icon>
+                <span>发布时间：{{ formatDateTime(currentAnnounce.createdAt) }}</span>
+              </div>
+              <div class="ad-content">{{ currentAnnounce.content || '（本条公告暂无正文）' }}</div>
+            </div>
+
+            <template #footer>
+              <div class="ad-footer">
+                <router-link to="/announcements" class="ad-all" @click="announceVisible = false">
+                  查看全部公告 <el-icon><ArrowRight /></el-icon>
+                </router-link>
+                <el-button type="primary" round @click="announceVisible = false">我知道了</el-button>
+              </div>
+            </template>
+          </el-dialog>
         </section>
       </div>
 
@@ -185,7 +218,7 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/store/user'
 import {
   Reading, Refresh, Search, Star, Warning, TrendCharts, Setting,
-  ArrowRight, CircleCheckFilled, Odometer, Calendar, Bell
+  ArrowRight, CircleCheckFilled, Odometer, Calendar, Bell, Clock
 } from '@element-plus/icons-vue'
 import AppHeader from '@/components/AppHeader.vue'
 import { getUserStatistics, getLearningOverview } from '@/api/learning'
@@ -272,6 +305,21 @@ const quickLinks = computed(() => {
 })
 
 const formatDate = (s) => (s || '').slice(0, 10)
+
+// LocalDateTime 形如 2026-09-22T15:30:12.345 → 精确到分钟
+const formatDateTime = (s) => {
+  if (!s) return '—'
+  return String(s).replace('T', ' ').slice(0, 16)
+}
+
+// 首页公告：点击条目在当前页弹窗看详情，不再跳走
+const announceVisible = ref(false)
+const currentAnnounce = ref(null)
+
+const openAnnounce = (ann) => {
+  currentAnnounce.value = ann
+  announceVisible.value = true
+}
 
 const goTo = (path) => router.push(path)
 
@@ -664,6 +712,69 @@ onMounted(load)
 .announce-empty p {
   margin: 0;
   font-size: 13px;
+}
+
+/* -------- 公告详情弹窗 -------- */
+.ad-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-right: 28px;
+}
+.ad-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-ink);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ad-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ad-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--color-ink-faint);
+}
+.ad-content {
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  font-size: 14px;
+  line-height: 1.85;
+  color: var(--color-ink);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 52vh;
+  overflow-y: auto;
+}
+.ad-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.ad-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 13px;
+  color: var(--color-primary-deep);
+  text-decoration: none;
+}
+.ad-all:hover {
+  color: var(--color-primary);
+}
+:deep(.announce-dialog .el-dialog__body) {
+  padding-top: 4px;
 }
 
 /* ================= 快捷入口 ================= */

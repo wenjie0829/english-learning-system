@@ -131,11 +131,17 @@
               <h2>系统公告</h2>
               <p>最新学习动态与系统消息</p>
             </div>
-            <router-link to="/statistics" class="more-link">更多 <el-icon><ArrowRight /></el-icon></router-link>
+            <router-link to="/announcements" class="more-link">全部公告 <el-icon><ArrowRight /></el-icon></router-link>
           </div>
 
           <div v-if="announcements.length" class="announce-list">
-            <div v-for="ann in announcements" :key="ann.id" class="announce-item">
+            <div
+              v-for="ann in announcements"
+              :key="ann.id"
+              class="announce-item clickable"
+              title="查看全部公告"
+              @click="goTo('/announcements')"
+            >
               <span class="announce-badge">公告</span>
               <div class="announce-body">
                 <h3 class="announce-title">{{ ann.title }}</h3>
@@ -607,6 +613,12 @@ onMounted(load)
 }
 .announce-item:hover {
   box-shadow: var(--shadow-card);
+}
+.announce-item.clickable {
+  cursor: pointer;
+}
+.announce-item.clickable:hover {
+  border-color: var(--color-primary);
 }
 .announce-badge {
   flex-shrink: 0;

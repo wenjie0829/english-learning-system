@@ -18,8 +18,14 @@ public class AnnouncementService {
 
     // ---------- 用户端 ----------
 
+    /** 首页公告面板用：仅返回最新的 5 条 */
     public List<Announcement> getActiveAnnouncements() {
         return announcementRepository.findTop5ByEnabledTrueOrderByCreatedAtDesc();
+    }
+
+    /** 公告列表页用：返回全部启用中的公告，不做条数截断 */
+    public List<Announcement> getAllActiveAnnouncements() {
+        return announcementRepository.findByEnabledTrueOrderByCreatedAtDesc();
     }
 
     // ---------- 管理端 ----------

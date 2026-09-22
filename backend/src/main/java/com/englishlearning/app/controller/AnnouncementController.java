@@ -23,8 +23,15 @@ public class AnnouncementController {
         this.announcementService = announcementService;
     }
 
+    /** 首页公告面板：只返回最新的 5 条 */
     @GetMapping("/active")
     public ResponseEntity<List<Announcement>> getActiveAnnouncements() {
         return ResponseEntity.ok(announcementService.getActiveAnnouncements());
+    }
+
+    /** 公告列表页：返回全部启用中的公告，按发布时间倒序 */
+    @GetMapping
+    public ResponseEntity<List<Announcement>> getAnnouncementList() {
+        return ResponseEntity.ok(announcementService.getAllActiveAnnouncements());
     }
 }
